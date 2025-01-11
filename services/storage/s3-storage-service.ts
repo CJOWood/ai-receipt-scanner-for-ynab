@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { S3Client } from "bun";
-import { StorageService } from "./storage-service";
+import type { StorageService } from "./storage-service";
 import {
   createRandomFileName,
   getDateAsPaddedStringParts,
