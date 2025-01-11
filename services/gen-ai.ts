@@ -1,11 +1,7 @@
 import { GoogleGenerativeAI, SchemaType, type GenerationConfig } from "@google/generative-ai";
+import env from "../utils/env-vars";
 
-const apiKey = process.env.GEMINI_API_KEY;
-if (!apiKey) {
-  throw new Error("process.env.GEMINI_API_KEY is not specified");
-}
-
-const genAI = new GoogleGenerativeAI(apiKey);
+const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
   model: "gemini-2.0-flash-exp",
   systemInstruction: `Please process this slip. Categorize each line item individually based on the line item description. You should also provide a category for the entire slip based on the highest spent category in the line items. If there are no line items, use the name of the merchant to try and determine the category. Provide a very short memo which summarises what products were purchased. Output the transaction date in the format: 'YYYY-MM-DD'. If the slip doesn't have the full date, use the current date, which is ${new Date().toDateString()}, to try determine the full date`,
