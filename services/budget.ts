@@ -1,12 +1,9 @@
 import * as ynab from "ynab";
+import env from "../utils/env-vars";
 
-const apiKey = `${process.env.YNAB_API_KEY}`;
-const budgetId = `${process.env.YNAB_BUDGET_ID}`;
-const allowedCategories = process.env.YNAB_CATEGORY_GROUPS?.split(",");
-
-if (!apiKey || !budgetId) {
-  throw new Error("process.env.YNAB_API_KEY or process.env.YNAB_BUDGET_ID is not specified");
-}
+const apiKey = env.YNAB_API_KEY;
+const budgetId = env.YNAB_BUDGET_ID;
+const allowedCategories = env.YNAB_CATEGORY_GROUPS;
 
 var api = new ynab.API(apiKey);
 
