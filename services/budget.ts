@@ -5,7 +5,7 @@ const apiKey = env.YNAB_API_KEY;
 const budgetId = env.YNAB_BUDGET_ID;
 const allowedCategories = env.YNAB_CATEGORY_GROUPS;
 
-var api = new ynab.API(apiKey);
+const api = new ynab.API(apiKey);
 
 export const getAllEnvelopes = async () => {
   const budget = await api.budgets.getBudgetById(budgetId);
@@ -15,7 +15,11 @@ export const getAllEnvelopes = async () => {
     : budget.data.budget.category_groups
         ?.filter((c) => allowedCategories.some((ac) => ac === c.name))
         .map((c) => c.id)
-        .map((c) => budget.data.budget.categories?.filter((cat) => cat.category_group_id === c))
+        .map((c) =>
+          budget.data.budget.categories?.filter(
+            (cat) => cat.category_group_id === c
+          )
+        )
         .flat()
         .map((c) => c?.name || "")
         .filter((c) => c);
@@ -48,7 +52,9 @@ export const createTransaction = async (
 
   const budget = await api.budgets.getBudgetById(budgetId);
 
-  const accountId = budget.data.budget.accounts?.find((a) => a.name === accountName)?.id;
+  const accountId = budget.data.budget.accounts?.find(
+    (a) => a.name === accountName
+  )?.id;
 
   if (!accountId) {
     throw new Error("Account not found");
@@ -57,45 +63,15 @@ export const createTransaction = async (
   // First process the splits, if specified. This is useful for transactions that need to be split across multiple categories
   // If a transaction is split, the sum of the lineItemTotalAmounts must add up to the totalAmount for the slip. If they don't
   // we ignore the splits and just log the transaction against a single category.
-  const subtransactions: ynab.SaveSubTransaction[] = [];
-  if (fixedSplits) {
-    const totalSplitAmount = fixedSplits.reduce((acc, split) => acc + split.amount, 0);
-
-    if (totalSplitAmount !== fixedTotalAmount) {
-      console.warn(
-        `Total split amount ${totalSplitAmount} does not match total amount ${fixedTotalAmount}. Ignoring splits`
-      );
-    } else {
-      let splitTotals: { [categoryId: string]: number } = {};
-
-      for (const split of fixedSplits) {
-        const splitCategoryId = budget.data.budget.categories?.find((c) => c.name === split.category)?.id;
-
-        if (!splitCategoryId) {
-          console.warn(`Could not find category ID for ${split.category}. Ignoring splits`);
-          splitTotals = {};
-          break;
-        }
-
-        if (!splitTotals[splitCategoryId]) {
-          splitTotals[splitCategoryId] = 0;
-        }
-
-        splitTotals[splitCategoryId] += split.amount;
-      }
-
-      for (const [categoryId, amount] of Object.entries(splitTotals)) {
-        subtransactions.push({
-          amount: amount,
-          category_id: categoryId,
-        });
-      }
-    }
-  }
+  const subtransactions: ynab.SaveSubTransaction[] = fixedSplits
+    ? retrieveSubtransactions(budget, fixedTotalAmount, fixedSplits)
+    : [];
 
   let categoryId: string | undefined;
   if (!subtransactions) {
-    categoryId = budget.data.budget.categories?.find((c) => c.name === category)?.id;
+    categoryId = budget.data.budget.categories?.find(
+      (c) => c.name === category
+    )?.id;
 
     if (!categoryId) {
       throw new Error("Category not found");
@@ -114,4 +90,57 @@ export const createTransaction = async (
       subtransactions: subtransactions.length > 1 ? subtransactions : undefined,
     },
   });
+};
+
+const retrieveSubtransactions = (
+  budget: ynab.BudgetDetailResponse,
+  fixedTotalAmount: number,
+  fixedSplits: {
+    category: string;
+    amount: number;
+  }[]
+) => {
+  const subtransactions: ynab.SaveSubTransaction[] = [];
+
+  const totalSplitAmount = fixedSplits.reduce(
+    (acc, split) => acc + split.amount,
+    0
+  );
+
+  if (totalSplitAmount !== fixedTotalAmount) {
+    console.warn(
+      `Total split amount ${totalSplitAmount} does not match total amount ${fixedTotalAmount}. Ignoring splits`
+    );
+  } else {
+    let splitTotals: { [categoryId: string]: number } = {};
+
+    for (const split of fixedSplits) {
+      const splitCategoryId = budget.data.budget.categories?.find(
+        (c) => c.name === split.category
+      )?.id;
+
+      if (!splitCategoryId) {
+        console.warn(
+          `Could not find category ID for ${split.category}. Ignoring splits`
+        );
+        splitTotals = {};
+        break;
+      }
+
+      if (!splitTotals[splitCategoryId]) {
+        splitTotals[splitCategoryId] = 0;
+      }
+
+      splitTotals[splitCategoryId] += split.amount;
+    }
+
+    for (const [categoryId, amount] of Object.entries(splitTotals)) {
+      subtransactions.push({
+        amount: amount,
+        category_id: categoryId,
+      });
+    }
+  }
+
+  return subtransactions;
 };
