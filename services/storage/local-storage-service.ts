@@ -1,7 +1,5 @@
 import { z } from "zod";
-import * as crypto from "node:crypto";
 import type { StorageService } from "./storage-service";
-import { readdirSync } from "node:fs";
 import path from "node:path";
 import {
   createRandomFileName,
