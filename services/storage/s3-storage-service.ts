@@ -13,7 +13,7 @@ export const s3StorageOptionsSchema = z.object({
   secretAccessKey: z.string().nonempty(),
   bucket: z.string().nonempty(),
   pathPrefix: z.string().optional(),
-  endpoint: z.string().optional(),
+  endpoint: z.string().nonempty(),
 });
 
 export class S3StorageService implements StorageService {
