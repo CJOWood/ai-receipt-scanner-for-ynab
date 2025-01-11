@@ -1,13 +1,16 @@
-FROM oven/bun:1.1.43-debian AS build
+FROM oven/bun AS base
+WORKDIR /usr/src/app
 
-WORKDIR /app
+FROM base AS install
+RUN mkdir -p /temp/prod
+COPY package.json bun.lockb /temp/prod/
+RUN cd /temp/prod && bun install --frozen-lockfile --production
 
-COPY bun.lockb .
-COPY package.json .
+FROM base AS release
+COPY --from=install /temp/prod/node_modules node_modules
+COPY . .
 
-RUN bun install --frozen-lockfile
+ENV NODE_ENV=production
 
-COPY . /app
-
-# execute the binary!
-CMD ["bun", "run", "index.ts"]
+USER bun
+ENTRYPOINT [ "bun", "run", "index.ts" ]
