@@ -6,6 +6,9 @@ import { createTransaction, getAllEnvelopes } from "./services/budget";
 import { parseSlip } from "./services/gen-ai";
 import env from "./utils/env-vars";
 import { logger } from "hono/logger";
+import { getStorageService } from "./services/storage";
+
+const storageService = getStorageService();
 
 const app = new Hono();
 
@@ -23,8 +26,19 @@ app.post(
       account: z.string().nonempty(),
       file: z
         .instanceof(File)
-        .refine((f) => f.size <= env.MAX_FILE_SIZE, `Max file size is ${env.MAX_FILE_SIZE / 1024 / 1024}MB`)
-        .refine((f) => ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"].includes(f.type)),
+        .refine(
+          (f) => f.size <= env.MAX_FILE_SIZE,
+          `Max file size is ${env.MAX_FILE_SIZE / 1024 / 1024}MB`
+        )
+        .refine((f) =>
+          [
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/webp",
+            "application/pdf",
+          ].includes(f.type)
+        ),
     })
   ),
   async (c) => {
@@ -53,6 +67,14 @@ app.post(
         amount: li.lineItemTotalAmount,
       })) || []
     );
+
+    if (storageService) {
+      await storageService.uploadFile(
+        slip.storeName,
+        new Date(slip.transactionDate),
+        file
+      );
+    }
 
     return c.json(slip, 200);
   }

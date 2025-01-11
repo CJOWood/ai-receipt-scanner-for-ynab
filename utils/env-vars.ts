@@ -19,6 +19,18 @@ const envScheme = z.object({
     .optional()
     // Default file size is 5MB
     .transform((str) => (str && parseInt(str)) || 5242880),
+  FILE_STORAGE: z.enum(["local", "s3"]).optional(),
+  DATE_SUBDIRECTORIES: z.preprocess(
+    (val) => `${val}`.toLowerCase() !== "false",
+    z.boolean()
+  ),
+  // Validate all of these separately when create the storage service
+  LOCAL_DIRECTORY: z.string().optional(),
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
+  S3_BUCKET: z.string().optional(),
+  S3_PATH_PREFIX: z.string().optional(),
+  S3_ENDPOINT: z.string().optional(),
 });
 
 const env = envScheme.parse(process.env);
