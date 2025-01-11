@@ -31,11 +31,9 @@ Run the command below to start the container.
 docker run \
     -e APP_API_KEY=your_api_key \
     -e APP_API_SECRET=your_api_secret \
-    -e APP_PORT=3000 \
     -e GEMINI_API_KEY=your_gemini_api_key \
     -e YNAB_API_KEY=your_ynab_api_key \
     -e YNAB_BUDGET_ID=your_ynab_budget_id \
-    -e YNAB_CATEGORY_GROUPS=optional_comma_separated_category_groups \
     -p 3000:3000 \
     ivankahl/ynab-slip-uploader
 ```
