@@ -17,19 +17,19 @@ export const s3StorageOptionsSchema = z.object({
 });
 
 export class S3StorageService implements StorageService {
-  #s3Client: S3Client;
-  #pathPrefix: string | undefined;
-  #dateSubdirectories: boolean;
+  private readonly s3Client: S3Client;
+  private readonly pathPrefix: string | undefined;
+  private readonly dateSubdirectories: boolean;
 
   constructor(options: z.infer<typeof s3StorageOptionsSchema>) {
-    this.#s3Client = new S3Client({
+    this.s3Client = new S3Client({
       accessKeyId: options.accessKeyId,
       secretAccessKey: options.secretAccessKey,
       bucket: options.bucket,
       endpoint: options.endpoint,
     });
-    this.#dateSubdirectories = options.dateSubdirectories;
-    this.#pathPrefix = options.pathPrefix;
+    this.dateSubdirectories = options.dateSubdirectories;
+    this.pathPrefix = options.pathPrefix;
   }
 
   async uploadFile(
@@ -39,19 +39,19 @@ export class S3StorageService implements StorageService {
   ): Promise<void> {
     const { year, month, day } = getDateAsPaddedStringParts(transactionDate);
 
-    let pathPrefixToUse = this.#dateSubdirectories
-      ? `${this.#pathPrefix}/${year}/${month}/${day}`
-      : this.#pathPrefix;
+    let pathPrefixToUse = this.dateSubdirectories
+      ? `${this.pathPrefix}/${year}/${month}/${day}`
+      : this.pathPrefix;
 
     const fileExtension = mimeTypeToExtension(file.type);
     const fileName = createRandomFileName(
-      this.#dateSubdirectories
+      this.dateSubdirectories
         ? `${merchant}.${fileExtension}`
         : `${year}-${month}-${day}_${merchant}.${fileExtension}`
     );
 
     const filePath = `${pathPrefixToUse}/${fileName}`;
-    const s3File = this.#s3Client.file(filePath);
+    const s3File = this.s3Client.file(filePath);
 
     await s3File.write(file);
   }

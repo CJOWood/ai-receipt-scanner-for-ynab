@@ -13,14 +13,14 @@ export const localStorageOptionsSchema = z.object({
 });
 
 export class LocalStorageService implements StorageService {
-  #directory: string;
-  #dateSubdirectories: boolean;
+  private readonly directory: string;
+  private readonly dateSubdirectories: boolean;
 
   constructor(options: z.infer<typeof localStorageOptionsSchema>) {
-    this.#directory = options.directory.endsWith("/")
+    this.directory = options.directory.endsWith("/")
       ? options.directory.slice(0, -1)
       : options.directory;
-    this.#dateSubdirectories = options.dateSubdirectories;
+    this.dateSubdirectories = options.dateSubdirectories;
   }
 
   async uploadFile(
@@ -30,13 +30,13 @@ export class LocalStorageService implements StorageService {
   ): Promise<void> {
     const { year, month, day } = getDateAsPaddedStringParts(transactionDate);
 
-    let fileDirectory = this.#dateSubdirectories
-      ? path.join(this.#directory, `${year}`, `${month}`, `${day}`)
-      : this.#directory;
+    let fileDirectory = this.dateSubdirectories
+      ? path.join(this.directory, `${year}`, `${month}`, `${day}`)
+      : this.directory;
 
     const fileExtension = mimeTypeToExtension(file.type);
     const fileName = createRandomFileName(
-      this.#dateSubdirectories
+      this.dateSubdirectories
         ? `${merchant}.${fileExtension}`
         : `${year}-${month}-${day}_${merchant}.${fileExtension}`
     );
