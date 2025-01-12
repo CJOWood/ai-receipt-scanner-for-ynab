@@ -2,13 +2,9 @@ import { Hono } from "hono";
 import { basicAuth } from "hono/basic-auth";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { createTransaction, getAllEnvelopes } from "./services/budget";
-import { parseSlip } from "./services/gen-ai";
 import env from "./utils/env-vars";
 import { logger } from "hono/logger";
-import { getStorageService } from "./services/storage";
-
-const storageService = getStorageService();
+import { processAndUploadReceipt } from "./services/receipt";
 
 const app = new Hono();
 
@@ -44,39 +40,16 @@ app.post(
   async (c) => {
     const { account, file } = c.req.valid("form");
 
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    try {
+      const receipt = await processAndUploadReceipt(account, file);
 
-    // Get the list of available envelopes
-    const envelopes = await getAllEnvelopes();
-
-    const slip = await parseSlip(fileBuffer, file.type, envelopes);
-
-    if (!slip) {
-      return c.json({ error: "Failed to parse slip" }, 500);
-    }
-
-    await createTransaction(
-      account,
-      slip.storeName,
-      slip.category,
-      slip.transactionDate,
-      slip.memo,
-      slip.totalAmount,
-      slip.lineItems?.map((li) => ({
-        category: li.category,
-        amount: li.lineItemTotalAmount,
-      })) || []
-    );
-
-    if (storageService) {
-      await storageService.uploadFile(
-        slip.storeName,
-        new Date(slip.transactionDate),
-        file
+      return c.json(receipt, 200);
+    } catch (err: any) {
+      return c.json(
+        { error: err.message || "An unknown error occurred." },
+        500
       );
     }
-
-    return c.json(slip, 200);
   }
 );
 
