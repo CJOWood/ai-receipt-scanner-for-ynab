@@ -32,13 +32,14 @@ docker run \
     -e APP_API_KEY=your_api_key \
     -e APP_API_SECRET=your_api_secret \
     -e GEMINI_API_KEY=your_gemini_api_key \
+    -e GEMINI_MODEL=gemini-2.0-flash-exp
     -e YNAB_API_KEY=your_ynab_api_key \
     -e YNAB_BUDGET_ID=your_ynab_budget_id \
     -p 3000:3000 \
     ivankahl/ynab-slip-uploader
 ```
 
-Replace the `your_gemini_api_key`, `your_ynab_api_key`, and `your_ynab_budget_id` placeholders with your Google Gemini and YNAB API credentials. You should also replace `your_ynab_budget_id` with the ID of your YNAB budget. The application is secured using basic authentication, with `your_api_key` as the username and `your_api_secret` as the password.
+Replace the `your_gemini_api_key`, `your_ynab_api_key`, and `your_ynab_budget_id` placeholders with your Google Gemini and YNAB API credentials. You should also replace `your_ynab_budget_id` with the ID of your YNAB budget. The application is secured using basic authentication, with `your_api_key` as the username and `your_api_secret` as the password. You can customize which Gemini model should be used with the `GEMINI_MODEL` variable.
 
 Finally, you can provide a comma-separated list of category groups if you want to limit which envelopes should be considered when classifying transactions. Leaving it empty means all envelopes will be used.
 
@@ -91,6 +92,7 @@ The following environment variables let you configure the application:
 | Environment Variable   | Required                         | Description                                                                                                                                                                                                                                                                                           |
 | ---------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GEMINI_API_KEY`       | Required                         | Your Google Gemini API key which you can generate [here](https://aistudio.google.com/app/apikey).                                                                                                                                                                                                     |
+| `GEMINI_MODEL`         | Required                         | The [Gemini model variant](https://ai.google.dev/gemini-api/docs/models/gemini) you want to use. Minimum required variant is Gemini 1.5 and up as these support structured outputs.                                                                                                                   |
 | `YNAB_API_KEY`         | Required                         | Your YNAB Account API Key which y can generate [here](https://app.ynab.com/settings/developer).                                                                                                                                                                                                       |
 | `YNAB_BUDGET_ID`       | Required                         | The ID of your YNAB budget. You'll find this in the URL when viewing your budget on YNAB.                                                                                                                                                                                                             |
 | `YNAB_CATEGORY_GROUPS` | Optional                         | A comma-separated list of category group names that should be considered when categorizing the transaction. If left blank, all categories will be used.                                                                                                                                               |
