@@ -1,5 +1,10 @@
-import { GoogleGenerativeAI, SchemaType, type GenerationConfig } from "@google/generative-ai";
+import {
+  GoogleGenerativeAI,
+  SchemaType,
+  type GenerationConfig,
+} from "@google/generative-ai";
 import env from "../utils/env-vars";
+import type { Receipt } from "./shared-types";
 
 const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
@@ -7,7 +12,9 @@ const model = genAI.getGenerativeModel({
   systemInstruction: `Please process this slip. Categorize each line item individually based on the line item description. You should also provide a category for the entire slip based on the highest spent category in the line items. If there are no line items, use the name of the merchant to try and determine the category. Provide a very short memo which summarises what products were purchased. Output the transaction date in the format: 'YYYY-MM-DD'. If the slip doesn't have the full date, use the current date, which is ${new Date().toDateString()}, to try determine the full date`,
 });
 
-const getGeneratingConfig = (availableEnvelopes: string[]): GenerationConfig => ({
+const getGeneratingConfig = (
+  availableEnvelopes: string[]
+): GenerationConfig => ({
   temperature: 1,
   topP: 0.95,
   topK: 40,
@@ -16,7 +23,7 @@ const getGeneratingConfig = (availableEnvelopes: string[]): GenerationConfig => 
   responseSchema: {
     type: SchemaType.OBJECT,
     properties: {
-      storeName: {
+      merchant: {
         type: SchemaType.STRING,
       },
       transactionDate: {
@@ -55,29 +62,21 @@ const getGeneratingConfig = (availableEnvelopes: string[]): GenerationConfig => 
         enum: availableEnvelopes,
       },
     },
-    required: ["storeName", "totalAmount", "transactionDate", "category", "memo"],
+    required: [
+      "merchant",
+      "totalAmount",
+      "transactionDate",
+      "category",
+      "memo",
+    ],
   },
 });
 
-export type Slip = {
-  storeName: string;
-  category: string;
-  transactionDate: string;
-  memo: string;
-  totalAmount: number;
-  lineItems?: {
-    productName: string;
-    quantity?: number;
-    lineItemTotalAmount: number;
-    category: string;
-  }[];
-};
-
-export const parseSlip = async (
+export const parseReceipt = async (
   image: Buffer,
   mimeType: string,
   availableEnvelopes: string[]
-): Promise<Slip | null> => {
+): Promise<Receipt | null> => {
   const chatSession = model.startChat({
     generationConfig: getGeneratingConfig(availableEnvelopes),
     history: [],
@@ -95,5 +94,10 @@ export const parseSlip = async (
     },
   ]);
 
-  return JSON.parse(result.response.text());
+  try {
+    return JSON.parse(result.response.text());
+  } catch (err) {
+    console.error(`Failed to parse receipt: ${err}`);
+    return null;
+  }
 };
