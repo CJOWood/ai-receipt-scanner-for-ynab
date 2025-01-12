@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const envScheme = z.object({
   GEMINI_API_KEY: z.string().nonempty(),
+  GEMINI_MODEL: z.string().nonempty(),
   YNAB_API_KEY: z.string().nonempty(),
   YNAB_BUDGET_ID: z.string().nonempty(),
   YNAB_CATEGORY_GROUPS: z
