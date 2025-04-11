@@ -31,6 +31,20 @@ export const getAllEnvelopes = async () => {
   return envelopes;
 };
 
+export const getAllPayees = async () => {
+  const budget = await api.budgets.getBudgetById(budgetId);
+
+  const payees = budget.data.budget.payees
+    ?.filter((p) => p.name && !p.deleted)
+    .map((p) => p.name);
+
+  if (!payees) {
+    throw new Error("No payees found");
+  }
+
+  return payees;
+};
+
 export const createTransaction = async (
   accountName: string,
   merchant: string,

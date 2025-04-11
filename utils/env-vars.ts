@@ -9,6 +9,10 @@ const envScheme = z.object({
     .string()
     .optional()
     .transform((str) => str?.split(",") || []),
+  YNAB_INCLUDE_PAYEES_IN_PROMPT: z.preprocess(
+    (val) => `${val}`.toLowerCase() !== "false",
+    z.boolean()
+  ),
   APP_PORT: z
     .string()
     .optional()

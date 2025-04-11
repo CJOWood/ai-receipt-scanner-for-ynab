@@ -159,6 +159,7 @@ dist
 # Stores VSCode versions used for testing VSCode extensions
 
 .vscode-test
+.vscode
 
 # yarn v2
 
@@ -173,3 +174,6 @@ dist
 
 # Finder (MacOS) folder config
 .DS_Store
+
+# tmp
+tmp
