@@ -2,9 +2,11 @@ import type { Receipt } from "./shared-types";
 import {
   createTransaction,
   getAllEnvelopes as getAllCategories,
+  getAllPayees,
 } from "./budget";
 import { parseReceipt } from "./gen-ai";
 import { getStorageService } from "./storage";
+import env from "../utils/env-vars";
 
 const storageService = getStorageService();
 
@@ -19,8 +21,17 @@ export const processAndUploadReceipt = async (
 
   let receipt: Receipt | null = null;
 
+  let ynabPayees = env.YNAB_INCLUDE_PAYEES_IN_PROMPT
+    ? await getAllPayees()
+    : null;
+
   try {
-    receipt = await parseReceipt(fileBuffer, file.type, ynabCategories);
+    receipt = await parseReceipt(
+      fileBuffer,
+      file.type,
+      ynabCategories,
+      ynabPayees
+    );
 
     if (!receipt) {
       throw new Error("Receipt was supposedly parsed but null was returned.");

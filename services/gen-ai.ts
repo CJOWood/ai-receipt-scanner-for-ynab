@@ -75,7 +75,8 @@ const getGeneratingConfig = (
 export const parseReceipt = async (
   image: Buffer,
   mimeType: string,
-  availableEnvelopes: string[]
+  availableEnvelopes: string[],
+  existingPayees: string[] | null = null
 ): Promise<Receipt | null> => {
   const chatSession = model.startChat({
     generationConfig: getGeneratingConfig(availableEnvelopes),
@@ -84,7 +85,13 @@ export const parseReceipt = async (
 
   const result = await chatSession.sendMessage([
     {
-      text: "Process this slip",
+      text: `Process this slip. Make sure you ONLY use a category in the list of available enum values. ${
+        existingPayees
+          ? `\n\nConsider the following existing merchants and pick the most appropriate one. If none are appropriate, use the merchant name from the receipt:\n${existingPayees
+              .map((p) => `- ${p}`)
+              .join("\n")}`
+          : ""
+      }`,
     },
     {
       inlineData: {
