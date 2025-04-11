@@ -45,6 +45,7 @@ app.post(
 
       return c.json(receipt, 200);
     } catch (err: any) {
+      console.error("Error processing receipt:", err)
       return c.json(
         { error: err.message || "An unknown error occurred." },
         500
