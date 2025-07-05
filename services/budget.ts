@@ -77,12 +77,15 @@ export const createTransaction = async (
   // First process the splits, if specified. This is useful for transactions that need to be split across multiple categories
   // If a transaction is split, the sum of the lineItemTotalAmounts must add up to the totalAmount for the slip. If they don't
   // we ignore the splits and just log the transaction against a single category.
-  const subtransactions: ynab.SaveSubTransaction[] = fixedSplits
+  let subtransactions: ynab.SaveSubTransaction[] = fixedSplits
     ? retrieveSubtransactions(budget, fixedTotalAmount, fixedSplits)
     : [];
 
   let categoryId: string | undefined;
-  if (!subtransactions) {
+  if (subtransactions.length === 1) {
+    categoryId = subtransactions[0].category_id;
+    subtransactions = [];
+  } else if (subtransactions.length === 0) {
     categoryId = budget.data.budget.categories?.find(
       (c) => c.name === category
     )?.id;
