@@ -19,7 +19,10 @@ const envScheme = z.object({
     .transform((str) => (str && parseInt(str)) || 3000),
   APP_API_KEY: z.string().nonempty(),
   APP_API_SECRET: z.string().nonempty(),
-  APP_FRONTEND_URL: z.string().optional(),
+  APP_TRUSTED_IPS: z
+    .string()
+    .optional()
+    .transform((str) => str?.split(",").map((s) => s.trim()).filter(Boolean) || []),
   MAX_FILE_SIZE: z
     .string()
     .optional()
