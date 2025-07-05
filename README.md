@@ -47,6 +47,13 @@ Finally, you can provide a comma-separated list of category groups if you want t
 
 If everything is running, you should get an `OK` response when accessing `/healthz` endpoint.
 
+### Web Form
+
+The container also serves a small React based form at the root path. Open
+`http://localhost:3000/` in your browser and use the form to upload a slip. The
+form stores any bank accounts you enter in your browser's local storage so they
+can be reused the next time you visit.
+
 ### Uploading Slip
 
 Send the following cURL request to upload a slip:

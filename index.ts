@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { basicAuth } from "hono/basic-auth";
+import { serveStatic } from "hono/bun";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import env from "./utils/env-vars";
@@ -57,6 +58,14 @@ app.post(
 app.get("/healthz", async (c) => {
   return c.text("OK", 200);
 });
+
+app.use(
+  "/*",
+  serveStatic({
+    root: "./frontend",
+    rewriteRequestPath: (path) => (path === "/" ? "/index.html" : path),
+  })
+);
 
 export default {
   port: env.APP_PORT,
