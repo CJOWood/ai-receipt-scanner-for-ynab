@@ -177,3 +177,4 @@ dist
 
 # tmp
 tmp
+*.lockb
