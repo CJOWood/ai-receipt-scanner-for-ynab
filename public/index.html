@@ -26,10 +26,14 @@
     <script src="/node_modules/@emotion/react/dist/emotion-react.umd.min.js"></script>
     <script src="/node_modules/@emotion/styled/dist/emotion-styled.umd.min.js"></script>
     <script src="/node_modules/@mui/material/umd/material-ui.production.min.js"></script>
-    <!-- tslib required by react-easy-crop -->
-    <script src="/node_modules/tslib/tslib.es6.js"></script>
-    <!-- react-easy-crop -->
-    <script src="/node_modules/react-easy-crop/umd/react-easy-crop.min.js"></script>
+     <!-- react-image-crop -->
+    <link
+      rel="stylesheet"
+      href="/node_modules/react-image-crop/dist/ReactCrop.css"
+    />
+    <script src="/node_modules/react-image-crop/dist/index.umd.cjs"></script>
+    <!-- smartcrop for automatic crop suggestions -->
+    <script src="/node_modules/smartcrop/smartcrop.js"></script>
     <!-- Expose runtime config -->
     <script src="/config.js"></script>
     <script>
@@ -58,6 +62,10 @@
         Paper,
         IconButton,
         Stack,
+        Dialog,
+        DialogTitle,
+        DialogContent,
+        DialogActions,
       } = MaterialUI;
 
       function App() {
@@ -84,6 +92,12 @@
         const watchAccount = watch("account");
         const watchFile = watch("file");
         const canSubmit = !!watchAccount && !!(watchFile && watchFile.length > 0);
+        const [cropOpen, setCropOpen] = useState(false);
+        const [imgSrc, setImgSrc] = useState(null);
+        const [crop, setCrop] = useState(null);
+        const [completedCrop, setCompletedCrop] = useState(null);
+        const [croppedFile, setCroppedFile] = useState(null);
+        const imgRef = React.useRef(null);
 
         const addAccount = (acc) => {
           if (acc && !accounts.includes(acc)) {
@@ -133,6 +147,37 @@
             updated[index] = !updated[index];
             return updated;
           });
+        };
+
+        const applyCrop = async () => {
+          if (!completedCrop || !imgRef.current) {
+            setCropOpen(false);
+            return;
+          }
+          const canvas = document.createElement("canvas");
+          const scaleX = imgRef.current.naturalWidth / imgRef.current.width;
+          const scaleY = imgRef.current.naturalHeight / imgRef.current.height;
+          canvas.width = completedCrop.width;
+          canvas.height = completedCrop.height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(
+            imgRef.current,
+            completedCrop.x * scaleX,
+            completedCrop.y * scaleY,
+            completedCrop.width * scaleX,
+            completedCrop.height * scaleY,
+            0,
+            0,
+            completedCrop.width,
+            completedCrop.height,
+          );
+          const blob = await new Promise((res) =>
+            canvas.toBlob(res, "image/jpeg")
+          );
+          if (blob) {
+            setCroppedFile(new File([blob], fileName, { type: "image/jpeg" }));
+          }
+          setCropOpen(false);
         };
 
         const renderReceiptTable = (receipt, key) =>
@@ -222,7 +267,7 @@
             return;
           }
 
-          const file = data.file[0];
+          const file = croppedFile || data.file[0];
 
           setSteps(() => {
             const updated = defaultSteps.map((s) => ({ ...s }));
@@ -237,7 +282,7 @@
 
           const formData = new FormData();
           formData.append("account", data.account);
-          formData.append("file", data.file[0]);
+          formData.append("file", file);
 
           const headers = {};
           if (authRequired) {
@@ -303,6 +348,7 @@
             if (res.ok) {
               reset();
               setFileName("");
+              setCroppedFile(null);
             } else {
               addLog(activeStep, "Upload failed");
               markError(activeStep, "Upload failed");
@@ -488,15 +534,74 @@
                   disabled: loading,
                   onChange: (e) => {
                     fileRegister.onChange(e);
-                    setFileName(e.target.files?.[0]?.name || "");
+                    setCroppedFile(null);
+                    setCrop(null);
+                    setCompletedCrop(null);
+                    const f = e.target.files?.[0];
+                    setFileName(f?.name || "");
+                    if (f && f.type.startsWith("image/")) {
+                      const url = URL.createObjectURL(f);
+                      setImgSrc(url);
+                      const img = new Image();
+                      img.onload = async () => {
+                        const res = await window.smartcrop.crop(img, {
+                          width: img.width,
+                          height: img.height,
+                        });
+                        const c = res.topCrop;
+                        setCrop({
+                          unit: "px",
+                          x: c.x,
+                          y: c.y,
+                          width: c.width,
+                          height: c.height,
+                        });
+                        setCropOpen(true);
+                      };
+                      img.src = url;
+                    }
                   },
                   onBlur: fileRegister.onBlur,
                   name: fileRegister.name,
                   ref: fileRegister.ref,
                 })
-              ),
+              ,
               React.createElement(
-                Button,
+                Dialog,
+                { open: cropOpen, onClose: () => setCropOpen(false), maxWidth: "md", fullWidth: true },
+                React.createElement(DialogTitle, null, "Crop Image"),
+                React.createElement(
+                  DialogContent,
+                  { dividers: true },
+                  imgSrc &&
+                    React.createElement(
+                      window.ReactCrop.ReactCrop,
+                      {
+                        crop: crop,
+                        onChange: (c) => setCrop(c),
+                        onComplete: (c) => setCompletedCrop(c),
+                        keepSelection: true,
+                      },
+                      React.createElement("img", {
+                        ref: imgRef,
+                        src: imgSrc,
+                        style: { maxWidth: "100%" },
+                      }),
+                    )
+                ),
+                React.createElement(
+                  DialogActions,
+                  null,
+                  React.createElement(
+                    Button,
+                    { onClick: applyCrop },
+                    "Done",
+                  ),
+                ),
+              )
+            ),
+            React.createElement(
+              Button,
                 { variant: "contained", type: "submit", disabled: loading || !canSubmit },
                 loading
                   ? React.createElement(MaterialUI.CircularProgress, { size: 24, color: "inherit" })

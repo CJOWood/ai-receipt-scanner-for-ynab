@@ -20,6 +20,8 @@
     "react-dom": "18",
     "react-easy-crop": "4",
     "react-hook-form": "^7.60.0",
+    "react-image-crop": "^11.0.10",
+    "smartcrop": "^2.0.5",
     "tslib": "2",
     "ynab": "^2.6.0",
     "zod": "^3.24.1"
