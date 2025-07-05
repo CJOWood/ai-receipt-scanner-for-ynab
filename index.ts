@@ -38,7 +38,7 @@ app.post(
         .instanceof(File)
         .refine(
           (f) => f.size <= env.MAX_FILE_SIZE,
-          `Max file size is ${env.MAX_FILE_SIZE / 1024 / 1024}MB`
+          `Max file size is ${env.MAX_FILE_SIZE / 1024 / 1024}MB`,
         )
         .refine((f) =>
           [
@@ -47,9 +47,9 @@ app.post(
             "image/png",
             "image/webp",
             "application/pdf",
-          ].includes(f.type)
+          ].includes(f.type),
         ),
-    })
+    }),
   ),
   async (c) => {
     const { account, file } = c.req.valid("form");
@@ -59,17 +59,25 @@ app.post(
 
       return c.json(receipt, 200);
     } catch (err: any) {
-      console.error("Error processing receipt:", err)
+      console.error("Error processing receipt:", err);
       return c.json(
         { error: err.message || "An unknown error occurred." },
-        500
+        500,
       );
     }
-  }
+  },
 );
 
 app.get("/healthz", async (c) => {
   return c.text("OK", 200);
+});
+
+// Expose selected env vars to the frontend
+app.get("/config.js", (c) => {
+  const script = `window.APP_FRONTEND_URL = ${JSON.stringify(env.APP_FRONTEND_URL || "")};`;
+  return c.text(script, 200, {
+    "content-type": "application/javascript",
+  });
 });
 
 // Serve the front-end from the public directory
