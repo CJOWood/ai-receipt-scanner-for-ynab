@@ -10,12 +10,15 @@ import env from "../utils/env-vars";
 
 const storageService = getStorageService();
 
-export type ReceiptProgressHandler = (event: string, data?: unknown) => void | Promise<void>;
+export type ReceiptProgressHandler = (
+  event: string,
+  data?: unknown,
+) => void | Promise<void>;
 
 export const processAndUploadReceipt = async (
   account: string,
   file: File,
-  onProgress?: ReceiptProgressHandler
+  onProgress?: ReceiptProgressHandler,
 ): Promise<Receipt> => {
   const fileBuffer = Buffer.from(await file.arrayBuffer());
 
@@ -40,7 +43,7 @@ export const processAndUploadReceipt = async (
       fileBuffer,
       file.type,
       ynabCategories,
-      ynabPayees
+      ynabPayees,
     );
 
     if (!receipt) {
@@ -64,9 +67,20 @@ export const processAndUploadReceipt = async (
       receipt.lineItems?.map((li) => ({
         category: li.category,
         amount: li.lineItemTotalAmount,
-      }))
+      })),
     );
-    await onProgress?.("response-ynab");
+    await onProgress?.("response-ynab", {
+      account,
+      merchant: receipt.merchant,
+      transactionDate: receipt.transactionDate,
+      memo: receipt.memo,
+      totalAmount: receipt.totalAmount,
+      category: receipt.category,
+      splits: receipt.lineItems?.map((li) => ({
+        category: li.category,
+        amount: li.lineItemTotalAmount,
+      })),
+    });
   } catch (err) {
     console.error(`Failed to import the receipt into YNAB: ${err}`);
     throw new ReceiptYnabImportError();
@@ -78,7 +92,7 @@ export const processAndUploadReceipt = async (
       await storageService.uploadFile(
         receipt.merchant,
         new Date(receipt.transactionDate),
-        file
+        file,
       );
       await onProgress?.("upload-file-done");
     } catch (err) {
