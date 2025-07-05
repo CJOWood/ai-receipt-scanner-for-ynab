@@ -1,6 +1,7 @@
 import { Hono, type Context, type Next } from "hono";
 import { basicAuth } from "hono/basic-auth";
 import { serveStatic } from "hono/bun";
+import { streamSSE } from "hono/helper/streaming";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import env from "./utils/env-vars";
@@ -65,6 +66,48 @@ app.post(
         500,
       );
     }
+  },
+);
+
+app.post(
+  "/upload/events",
+  uploadAuth,
+  zValidator(
+    "form",
+    z.object({
+      account: z.string().nonempty(),
+      file: z
+        .instanceof(File)
+        .refine(
+          (f) => f.size <= env.MAX_FILE_SIZE,
+          `Max file size is ${env.MAX_FILE_SIZE / 1024 / 1024}MB`,
+        )
+        .refine((f) =>
+          [
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/webp",
+            "application/pdf",
+          ].includes(f.type),
+        ),
+    }),
+  ),
+  async (c) => {
+    const { account, file } = c.req.valid("form");
+
+    return streamSSE(
+      c,
+      async (stream) => {
+        await processAndUploadReceipt(account, file, async (event, data) => {
+          await stream.writeSSE({ data: JSON.stringify({ event, data }) });
+        });
+        await stream.writeSSE({ data: JSON.stringify({ event: "done" }) });
+      },
+      async (err, stream) => {
+        await stream.writeSSE({ data: JSON.stringify({ event: "error", data: err.message }) });
+      },
+    );
   },
 );
 
