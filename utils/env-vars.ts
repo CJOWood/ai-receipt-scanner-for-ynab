@@ -23,6 +23,10 @@ const envScheme = z.object({
     .string()
     .optional()
     .transform((str) => str?.split(",").map((s) => s.trim()).filter(Boolean) || []),
+  APP_DISABLE_AUTH: z.preprocess(
+    (val) => `${val}`.toLowerCase() === "true",
+    z.boolean(),
+  ),
   MAX_FILE_SIZE: z
     .string()
     .optional()
