@@ -22,6 +22,12 @@
     <script src="https://unpkg.com/@emotion/react@11/dist/emotion-react.umd.min.js"></script>
     <script src="https://unpkg.com/@emotion/styled@11/dist/emotion-styled.umd.min.js"></script>
     <script src="https://unpkg.com/@mui/material@5/umd/material-ui.production.min.js"></script>
+    <!-- LoadingButton from MUI Lab -->
+    <script type="module">
+      import { LoadingButton } from "https://unpkg.com/@mui/lab/index.js?module";
+      window.MaterialUI = window.MaterialUI || {};
+      window.MaterialUI.LoadingButton = LoadingButton;
+    </script>
     <!-- Expose runtime config -->
     <script src="/config.js"></script>
     <script>
@@ -35,16 +41,31 @@
         Box,
         Autocomplete,
         createFilterOptions,
+        List,
+        ListItem,
+        ListItemText,
+        Checkbox,
+        LoadingButton,
       } = MaterialUI;
 
       function App() {
         const authRequired = !window.APP_FRONTEND_URL;
         const { register, handleSubmit, reset, control } = useForm();
+        const fileRegister = register("file", { required: true });
 
         const [accounts, setAccounts] = useState(() => {
           const stored = localStorage.getItem("accounts");
           return stored ? JSON.parse(stored) : [];
         });
+        const [fileName, setFileName] = useState("");
+        const [loading, setLoading] = useState(false);
+        const defaultSteps = [
+          { label: "Uploading image", done: false },
+          { label: "Response from YNAB", done: false },
+          { label: "Request to Gemini", done: false },
+          { label: "Response from Gemini", done: false },
+        ];
+        const [steps, setSteps] = useState(defaultSteps);
 
         const addAccount = (acc) => {
           if (acc && !accounts.includes(acc)) {
@@ -54,11 +75,22 @@
           }
         };
 
+        const markStep = (index) => {
+          setSteps((prev) => {
+            const updated = [...prev];
+            updated[index].done = true;
+            return updated;
+          });
+        };
+
         const onSubmit = async (data) => {
           if (!data.file?.[0]) {
             alert("Please select a file");
             return;
           }
+
+          setSteps(defaultSteps);
+          setLoading(true);
 
           const formData = new FormData();
           formData.append("account", data.account);
@@ -71,20 +103,26 @@
           }
 
           try {
+            markStep(0);
             const res = await fetch("/upload", {
               method: "POST",
               headers,
               body: formData,
             });
             const result = await res.json();
+            markStep(1);
+            markStep(2);
+            markStep(3);
             if (!res.ok) {
               alert(result.error || "Upload failed");
             } else {
-              alert("Upload successful");
               reset();
+              setFileName("");
             }
           } catch (err) {
             alert("Network error");
+          } finally {
+            setLoading(false);
           }
         };
 
@@ -185,16 +223,46 @@
             React.createElement(
               Box,
               { sx: { mb: 2 } },
-              React.createElement("input", {
-                type: "file",
-                accept: ".jpg,.jpeg,.png,.webp,.pdf",
-                ...register("file", { required: true }),
-              }),
+              React.createElement(
+                Button,
+                { variant: "outlined", component: "label" },
+                "Select File",
+                React.createElement("input", {
+                  type: "file",
+                  hidden: true,
+                  accept: ".jpg,.jpeg,.png,.webp,.pdf",
+                  onChange: (e) => {
+                    fileRegister.onChange(e);
+                    setFileName(e.target.files?.[0]?.name || "");
+                  },
+                  onBlur: fileRegister.onBlur,
+                  name: fileRegister.name,
+                  ref: fileRegister.ref,
+                })
+              ),
+              fileName &&
+                React.createElement(
+                  Typography,
+                  { variant: "body2", sx: { ml: 2, display: "inline" } },
+                  fileName
+                )
             ),
             React.createElement(
-              Button,
-              { variant: "contained", type: "submit" },
+              LoadingButton,
+              { variant: "contained", type: "submit", loading: loading },
               "Upload",
+            ),
+            React.createElement(
+              List,
+              { sx: { mt: 2 } },
+              steps.map((step, idx) =>
+                React.createElement(
+                  ListItem,
+                  { key: idx },
+                  React.createElement(Checkbox, { checked: step.done, readOnly: true }),
+                  React.createElement(ListItemText, { primary: step.label })
+                )
+              )
             ),
           ),
         );
