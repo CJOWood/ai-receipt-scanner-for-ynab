@@ -2,6 +2,7 @@
   "name": "slips-generator",
   "module": "index.ts",
   "type": "module",
+  "packageManager": "bun@1.2.14",
   "devDependencies": {
     "@types/bun": "latest"
   },
@@ -9,9 +10,17 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@emotion/react": "11",
+    "@emotion/styled": "11",
     "@google/generative-ai": "^0.21.0",
     "@hono/zod-validator": "^0.4.2",
+    "@mui/material": "5",
     "hono": "^4.6.16",
+    "react": "18",
+    "react-dom": "18",
+    "react-easy-crop": "4",
+    "react-hook-form": "^7.60.0",
+    "tslib": "2",
     "ynab": "^2.6.0",
     "zod": "^3.24.1"
   }
