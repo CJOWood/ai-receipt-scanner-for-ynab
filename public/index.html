@@ -26,8 +26,6 @@
     <script src="https://unpkg.com/@emotion/react@11/dist/emotion-react.umd.min.js"></script>
     <script src="https://unpkg.com/@emotion/styled@11/dist/emotion-styled.umd.min.js"></script>
     <script src="https://unpkg.com/@mui/material@5/umd/material-ui.production.min.js"></script>
-    <!-- react-easy-crop -->
-    <script src="https://unpkg.com/react-easy-crop@4/umd/react-easy-crop.min.js"></script>
     <!-- Expose runtime config -->
     <script src="/config.js"></script>
     <script>
@@ -56,11 +54,6 @@
         Paper,
         IconButton,
         Stack,
-        Dialog,
-        DialogTitle,
-        DialogContent,
-        DialogActions,
-        Slider,
       } = MaterialUI;
 
       function App() {
@@ -74,14 +67,6 @@
         });
         const [fileName, setFileName] = useState("");
         const [loading, setLoading] = useState(false);
-        const [openCrop, setOpenCrop] = useState(false);
-        const [cropSrc, setCropSrc] = useState(null);
-        const [fileToCrop, setFileToCrop] = useState(null);
-        const [croppedFile, setCroppedFile] = useState(null);
-        const [crop, setCrop] = useState({ x: 0, y: 0 });
-        const [zoom, setZoom] = useState(1);
-        const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
-        const fileInputRef = React.useRef(null);
         const defaultSteps = [
           { label: "Uploading image", done: false, logs: [], error: null },
           { label: "Request to Gemini", done: false, logs: [], error: null },
@@ -144,50 +129,6 @@
             updated[index] = !updated[index];
             return updated;
           });
-        };
-
-        const getCroppedBlob = async (src, crop) => {
-          const image = await new Promise((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => resolve(img);
-            img.onerror = reject;
-            img.src = src;
-          });
-          const canvas = document.createElement("canvas");
-          canvas.width = crop.width;
-          canvas.height = crop.height;
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(
-            image,
-            crop.x,
-            crop.y,
-            crop.width,
-            crop.height,
-            0,
-            0,
-            crop.width,
-            crop.height,
-          );
-          return new Promise((resolve) =>
-            canvas.toBlob((b) => resolve(b), fileToCrop.type || "image/jpeg")
-          );
-        };
-
-        const applyCrop = async () => {
-          if (!cropSrc || !croppedAreaPixels) {
-            setOpenCrop(false);
-            return;
-          }
-          const blob = await getCroppedBlob(cropSrc, croppedAreaPixels);
-          const newFile = new File([blob], fileToCrop.name, { type: fileToCrop.type });
-          const dt = new DataTransfer();
-          dt.items.add(newFile);
-          if (fileInputRef.current) {
-            fileInputRef.current.files = dt.files;
-          }
-          setCroppedFile(newFile);
-          setFileName(newFile.name);
-          setOpenCrop(false);
         };
 
         const renderReceiptTable = (receipt, key) =>
@@ -277,7 +218,7 @@
             return;
           }
 
-          const file = croppedFile || data.file[0];
+          const file = data.file[0];
 
           setSteps(() => {
             const updated = defaultSteps.map((s) => ({ ...s }));
@@ -292,7 +233,7 @@
 
           const formData = new FormData();
           formData.append("account", data.account);
-          formData.append("file", file);
+          formData.append("file", data.file[0]);
 
           const headers = {};
           if (authRequired) {
@@ -543,21 +484,11 @@
                   disabled: loading,
                   onChange: (e) => {
                     fileRegister.onChange(e);
-                    const f = e.target.files?.[0];
-                    setFileName(f?.name || "");
-                    setCroppedFile(null);
-                    setFileToCrop(f || null);
-                    if (f && f.type.startsWith("image/")) {
-                      setCropSrc(URL.createObjectURL(f));
-                      setOpenCrop(true);
-                    }
+                    setFileName(e.target.files?.[0]?.name || "");
                   },
                   onBlur: fileRegister.onBlur,
                   name: fileRegister.name,
-                  ref: (el) => {
-                    fileRegister.ref(el);
-                    fileInputRef.current = el;
-                  },
+                  ref: fileRegister.ref,
                 })
               ),
               React.createElement(
@@ -619,43 +550,6 @@
               )
             ),
           ),
-          React.createElement(
-            Dialog,
-            { open: openCrop, onClose: () => setOpenCrop(false), fullWidth: true, maxWidth: "sm" },
-            React.createElement(DialogTitle, null, "Crop Image"),
-            React.createElement(
-              DialogContent,
-              null,
-              React.createElement(
-                "div",
-                {
-                  style: { position: "relative", width: "100%", height: 400 },
-                },
-                React.createElement(ReactEasyCrop.default, {
-                  image: cropSrc,
-                  crop: crop,
-                  zoom: zoom,
-                  onCropChange: setCrop,
-                  onZoomChange: setZoom,
-                  onCropComplete: (_, areaPixels) => setCroppedAreaPixels(areaPixels),
-                })
-              ),
-              React.createElement(Slider, {
-                min: 1,
-                max: 3,
-                step: 0.1,
-                value: zoom,
-                onChange: (e, v) => setZoom(v),
-                sx: { mt: 2 },
-              })
-            ),
-            React.createElement(
-              DialogActions,
-              null,
-              React.createElement(Button, { onClick: () => setOpenCrop(false) }, "Cancel"),
-              React.createElement(Button, { onClick: applyCrop, variant: "contained" }, "Apply")
-            )
-          )
         );
       }
 
