@@ -75,6 +75,12 @@
           }
         };
 
+        const removeAccount = (acc) => {
+          const updated = accounts.filter((a) => a !== acc);
+          setAccounts(updated);
+          localStorage.setItem("accounts", JSON.stringify(updated));
+        };
+
         const markStep = (index) => {
           setSteps((prev) => {
             const updated = [...prev];
@@ -211,7 +217,37 @@
                       return option.title;
                     },
                     renderOption: (props, option) =>
-                      React.createElement("li", props, option.title),
+                      React.createElement(
+                        "li",
+                        {
+                          ...props,
+                          style: {
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          },
+                        },
+                        option.title,
+                        !option.inputValue &&
+                          React.createElement(
+                            "button",
+                            {
+                              type: "button",
+                              onClick: (e) => {
+                                e.stopPropagation();
+                                removeAccount(option.title);
+                              },
+                              style: {
+                                marginLeft: "8px",
+                                border: "none",
+                                background: "transparent",
+                                cursor: "pointer",
+                                fontSize: "0.8rem",
+                              },
+                            },
+                            "\u00D7",
+                          ),
+                      ),
                     renderInput: (params) =>
                       React.createElement(TextField, {
                         ...params,
