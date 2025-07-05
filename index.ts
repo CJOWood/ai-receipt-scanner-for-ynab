@@ -1,6 +1,7 @@
 import { Hono, type Context, type Next } from "hono";
 import { basicAuth } from "hono/basic-auth";
 import { serveStatic } from "hono/bun";
+import { streamSSE, type SSEStreamingApi } from "hono/streaming";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import env from "./utils/env-vars";
@@ -68,6 +69,48 @@ app.post(
   },
 );
 
+app.post(
+  "/upload/events",
+  uploadAuth,
+  zValidator(
+    "form",
+    z.object({
+      account: z.string().nonempty(),
+      file: z
+        .instanceof(File)
+        .refine(
+          (f) => f.size <= env.MAX_FILE_SIZE,
+          `Max file size is ${env.MAX_FILE_SIZE / 1024 / 1024}MB`,
+        )
+        .refine((f) =>
+          [
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/webp",
+            "application/pdf",
+          ].includes(f.type),
+        ),
+    }),
+  ),
+  async (c) => {
+    const { account, file } = c.req.valid("form");
+
+    return streamSSE(
+      c,
+      async (stream: SSEStreamingApi) => {
+        await processAndUploadReceipt(account, file, async (event, data) => {
+          await stream.writeSSE({ data: JSON.stringify({ event, data }) });
+        });
+        await stream.writeSSE({ data: JSON.stringify({ event: "done" }) });
+      },
+      async (err: Error, stream: SSEStreamingApi) => {
+        await stream.writeSSE({ data: JSON.stringify({ event: "error", data: err.message }) });
+      },
+    );
+  },
+);
+
 app.get("/healthz", async (c) => {
   return c.text("OK", 200);
 });
@@ -85,5 +128,6 @@ app.get("/*", serveStatic({ root: "./public" }));
 
 export default {
   port: env.APP_PORT,
+  idleTimeout: 60,
   fetch: app.fetch,
 };
