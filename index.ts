@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context, type Next } from "hono";
 import { basicAuth } from "hono/basic-auth";
 import { serveStatic } from "hono/bun";
 import { z } from "zod";
@@ -11,12 +11,25 @@ const app = new Hono();
 
 app.use(logger());
 
-app.post(
-  "/upload",
-  basicAuth({
+const uploadAuth = async (c: Context, next: Next) => {
+  const allowed = env.APP_FRONTEND_URL;
+  const origin = c.req.header("origin") || "";
+  const referer = c.req.header("referer") || "";
+
+  if (allowed && (origin.startsWith(allowed) || referer.startsWith(allowed))) {
+    await next();
+    return;
+  }
+
+  await basicAuth({
     username: env.APP_API_KEY,
     password: env.APP_API_SECRET,
-  }),
+  })(c, next);
+};
+
+app.post(
+  "/upload",
+  uploadAuth,
   zValidator(
     "form",
     z.object({
