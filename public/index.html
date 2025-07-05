@@ -45,7 +45,7 @@
 
       function App() {
         const authRequired = !window.APP_FRONTEND_URL;
-        const { register, handleSubmit, reset, control } = useForm();
+        const { register, handleSubmit, reset, control, watch } = useForm();
         const fileRegister = register("file", { required: true });
 
         const [accounts, setAccounts] = useState(() => {
@@ -64,6 +64,9 @@
         const [steps, setSteps] = useState(defaultSteps);
         const [openSteps, setOpenSteps] = useState(defaultOpenSteps);
         const [activeStep, setActiveStep] = useState(0);
+        const watchAccount = watch("account");
+        const watchFile = watch("file");
+        const canSubmit = !!watchAccount && !!(watchFile && watchFile.length > 0);
 
         const addAccount = (acc) => {
           if (acc && !accounts.includes(acc)) {
@@ -254,6 +257,7 @@
                     selectOnFocus: true,
                     clearOnBlur: true,
                     handleHomeEndKeys: true,
+                    disabled: loading,
                     options: accounts.map((acc) => ({ title: acc })),
                     value: field.value ? { title: field.value } : null,
                     onChange: (event, newValue) => {
@@ -321,11 +325,12 @@
                             "\u00D7",
                           ),
                       ),
-                    renderInput: (params) =>
-                      React.createElement(TextField, {
-                        ...params,
-                        label: "Bank Account",
-                      }),
+                      renderInput: (params) =>
+                        React.createElement(TextField, {
+                          ...params,
+                          label: "Bank Account",
+                          disabled: loading,
+                        }),
                   }),
               }),
             ),
@@ -334,12 +339,13 @@
               { sx: { mb: 2 } },
               React.createElement(
                 Button,
-                { variant: "outlined", component: "label" },
+                { variant: "outlined", component: "label", disabled: loading },
                 "Select File",
                 React.createElement("input", {
-                  type: "file",
-                  hidden: true,
-                  accept: ".jpg,.jpeg,.png,.webp,.pdf",
+                    type: "file",
+                    hidden: true,
+                    accept: ".jpg,.jpeg,.png,.webp,.pdf",
+                    disabled: loading,
                   onChange: (e) => {
                     fileRegister.onChange(e);
                     setFileName(e.target.files?.[0]?.name || "");
@@ -356,13 +362,13 @@
                   fileName
                 )
             ),
-            React.createElement(
-              Button,
-              { variant: "contained", type: "submit", disabled: loading },
-              loading
-                ? React.createElement(MaterialUI.CircularProgress, { size: 24, color: "inherit" })
-                : "Upload"
-            ),
+              React.createElement(
+                Button,
+                { variant: "contained", type: "submit", disabled: loading || !canSubmit },
+                loading
+                  ? React.createElement(MaterialUI.CircularProgress, { size: 24, color: "inherit" })
+                  : "Upload"
+              ),
             React.createElement(
               Stepper,
               { activeStep: activeStep, orientation: "vertical", sx: { mt: 2 } },
