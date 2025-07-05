@@ -17,7 +17,7 @@
   <body>
     <div id="root"></div>
 
-     <!-- React and ReactDOM -->
+    <!-- React and ReactDOM -->
     <script src="/node_modules/react/umd/react.production.min.js"></script>
     <script src="/node_modules/react-dom/umd/react-dom.production.min.js"></script>
     <!-- react-hook-form -->
@@ -26,7 +26,7 @@
     <script src="/node_modules/@emotion/react/dist/emotion-react.umd.min.js"></script>
     <script src="/node_modules/@emotion/styled/dist/emotion-styled.umd.min.js"></script>
     <script src="/node_modules/@mui/material/umd/material-ui.production.min.js"></script>
-     <!-- react-image-crop -->
+    <!-- react-image-crop -->
     <link
       rel="stylesheet"
       href="/node_modules/react-image-crop/dist/ReactCrop.css"
@@ -69,7 +69,8 @@
       } = MaterialUI;
 
       function App() {
-        const authRequired = !window.APP_DISABLE_AUTH && !window.APP_TRUSTED_IPS;
+        const authRequired =
+          !window.APP_DISABLE_AUTH && !window.APP_TRUSTED_IPS;
         const { register, handleSubmit, reset, control, watch } = useForm();
         const fileRegister = register("file", { required: true });
 
@@ -91,7 +92,8 @@
         const [activeStep, setActiveStep] = useState(0);
         const watchAccount = watch("account");
         const watchFile = watch("file");
-        const canSubmit = !!watchAccount && !!(watchFile && watchFile.length > 0);
+        const canSubmit =
+          !!watchAccount && !!(watchFile && watchFile.length > 0);
         const [cropOpen, setCropOpen] = useState(false);
         const [imgSrc, setImgSrc] = useState(null);
         const [crop, setCrop] = useState(null);
@@ -164,7 +166,7 @@
             -imgRef.current.naturalHeight / 2,
           );
           const blob = await new Promise((res) =>
-            canvas.toBlob(res, "image/jpeg")
+            canvas.toBlob(res, "image/jpeg"),
           );
           if (blob) {
             const url = URL.createObjectURL(blob);
@@ -215,7 +217,7 @@
             completedCrop.height,
           );
           const blob = await new Promise((res) =>
-            canvas.toBlob(res, "image/jpeg")
+            canvas.toBlob(res, "image/jpeg"),
           );
           if (blob) {
             setCroppedFile(new File([blob], fileName, { type: "image/jpeg" }));
@@ -239,8 +241,8 @@
                   React.createElement(
                     TableCell,
                     { colSpan: 4, sx: { fontWeight: "bold" } },
-                    "Receipt Details"
-                  )
+                    "Receipt Details",
+                  ),
                 ),
                 React.createElement(
                   TableRow,
@@ -248,13 +250,13 @@
                   React.createElement(
                     TableCell,
                     { colSpan: 2 },
-                    `Merchant: ${receipt.merchant}`
+                    `Merchant: ${receipt.merchant}`,
                   ),
                   React.createElement(
                     TableCell,
                     { colSpan: 2 },
-                    `Date: ${receipt.transactionDate}`
-                  )
+                    `Date: ${receipt.transactionDate}`,
+                  ),
                 ),
                 React.createElement(
                   TableRow,
@@ -262,8 +264,8 @@
                   React.createElement(TableCell, null, "Item"),
                   React.createElement(TableCell, null, "Qty"),
                   React.createElement(TableCell, null, "Category"),
-                  React.createElement(TableCell, null, "Amount")
-                )
+                  React.createElement(TableCell, null, "Amount"),
+                ),
               ),
               React.createElement(
                 TableBody,
@@ -278,22 +280,129 @@
                     React.createElement(
                       TableCell,
                       null,
-                      li.lineItemTotalAmount.toFixed(2)
-                    )
-                  )
+                      li.lineItemTotalAmount.toFixed(2),
+                    ),
+                  ),
                 ),
                 React.createElement(
                   TableRow,
                   null,
-                  React.createElement(TableCell, { colSpan: 3, align: "right" }, "Total"),
+                  React.createElement(
+                    TableCell,
+                    { colSpan: 3, align: "right" },
+                    "Total",
+                  ),
                   React.createElement(
                     TableCell,
                     null,
-                    receipt.totalAmount.toFixed(2)
-                  )
-                )
-              )
-            )
+                    receipt.totalAmount.toFixed(2),
+                  ),
+                ),
+              ),
+            ),
+          );
+
+        const renderTransactionTable = (tx, key) =>
+          React.createElement(
+            TableContainer,
+            { component: Paper, key, sx: { mb: 1 } },
+            React.createElement(
+              Table,
+              { size: "small" },
+              React.createElement(
+                TableHead,
+                null,
+                React.createElement(
+                  TableRow,
+                  null,
+                  React.createElement(
+                    TableCell,
+                    { colSpan: 2, sx: { fontWeight: "bold" } },
+                    "Transaction Details",
+                  ),
+                ),
+                React.createElement(
+                  TableRow,
+                  null,
+                  React.createElement(
+                    TableCell,
+                    { colSpan: 2 },
+                    `Account: ${tx.account}`,
+                  ),
+                ),
+                React.createElement(
+                  TableRow,
+                  null,
+                  React.createElement(
+                    TableCell,
+                    { colSpan: 2 },
+                    `Payee: ${tx.merchant}`,
+                  ),
+                ),
+                React.createElement(
+                  TableRow,
+                  null,
+                  React.createElement(
+                    TableCell,
+                    { colSpan: 2 },
+                    `Date: ${tx.transactionDate}`,
+                  ),
+                ),
+                tx.memo &&
+                  React.createElement(
+                    TableRow,
+                    null,
+                    React.createElement(
+                      TableCell,
+                      { colSpan: 2 },
+                      `Memo: ${tx.memo}`,
+                    ),
+                  ),
+                React.createElement(
+                  TableRow,
+                  null,
+                  React.createElement(TableCell, null, "Category"),
+                  React.createElement(TableCell, null, "Amount"),
+                ),
+              ),
+              React.createElement(
+                TableBody,
+                null,
+                tx.splits && tx.splits.length > 0
+                  ? tx.splits.map((s, idx) =>
+                      React.createElement(
+                        TableRow,
+                        { key: idx },
+                        React.createElement(TableCell, null, s.category),
+                        React.createElement(
+                          TableCell,
+                          null,
+                          s.amount.toFixed(2),
+                        ),
+                      ),
+                    )
+                  : React.createElement(
+                      TableRow,
+                      null,
+                      React.createElement(TableCell, null, tx.category),
+                      React.createElement(
+                        TableCell,
+                        null,
+                        tx.totalAmount.toFixed(2),
+                      ),
+                    ),
+                React.createElement(
+                  TableRow,
+                  null,
+                  React.createElement(TableCell, { align: "right" }, "Total"),
+                  React.createElement(
+                    TableCell,
+                    null,
+                    tx.totalAmount.toFixed(2),
+                  ),
+                ),
+              ),
+            ),
           );
 
         const addLog = (index, message) => {
@@ -315,7 +424,7 @@
           setSteps(() => {
             const updated = defaultSteps.map((s) => ({ ...s }));
             updated[0].logs.push(
-              `File: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`
+              `File: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`,
             );
             return updated;
           });
@@ -379,6 +488,9 @@
                     addLog(3, "Creating YNAB transaction");
                   } else if (evt.event === "response-ynab") {
                     addLog(3, "YNAB transaction created");
+                    if (evt.data) {
+                      addLog(3, evt.data);
+                    }
                     markStep(3);
                   } else if (evt.event === "error") {
                     addLog(activeStep, evt.data || "Upload failed");
@@ -521,98 +633,102 @@
                             "\u00D7",
                           ),
                       ),
-                      renderInput: (params) =>
-                        React.createElement(TextField, {
-                          ...params,
-                          label: "Bank Account",
-                          disabled: loading,
-                        }),
+                    renderInput: (params) =>
+                      React.createElement(TextField, {
+                        ...params,
+                        label: "Bank Account",
+                        disabled: loading,
+                      }),
                   }),
               }),
             ),
+            React.createElement(
+              Box,
+              { sx: { mb: 2 } },
               React.createElement(
-                Box,
-                { sx: { mb: 2 } },
+                Stack,
+                { direction: "row", alignItems: "center", spacing: 1 },
                 React.createElement(
-                  Stack,
-                  { direction: "row", alignItems: "center", spacing: 1 },
-                  React.createElement(
-                    Button,
-                    {
-                      variant: "outlined",
-                      component: "label",
-                      htmlFor: "file-input",
-                      disabled: loading,
-                    },
-                    "Select File"
-                  ),
-                  React.createElement(
-                    IconButton,
-                    {
-                      color: "primary",
-                      component: "label",
-                      htmlFor: "file-input",
-                      "aria-label": "take picture",
-                      disabled: loading,
-                    },
-                    React.createElement(
-                      "span",
-                      { className: "material-icons" },
-                      "photo_camera"
-                    )
-                  ),
-                  fileName &&
-                    React.createElement(
-                      Typography,
-                      { variant: "body2", sx: { ml: 2, display: "inline" } },
-                      fileName
-                    )
-                ),
-                React.createElement("input", {
-                  id: "file-input",
-                  type: "file",
-                  hidden: true,
-                  accept: ".jpg,.jpeg,.png,.webp,.pdf",
-                  capture: "environment",
-                  disabled: loading,
-                  onChange: (e) => {
-                    fileRegister.onChange(e);
-                    setCroppedFile(null);
-                    setCrop(null);
-                    setCompletedCrop(null);
-                    setRotation(0);
-                    const f = e.target.files?.[0];
-                    setFileName(f?.name || "");
-                    if (f && f.type.startsWith("image/")) {
-                      const url = URL.createObjectURL(f);
-                      setImgSrc(url);
-                      const img = new Image();
-                      img.onload = async () => {
-                        const res = await window.smartcrop.crop(img, {
-                          width: img.width,
-                          height: img.height,
-                        });
-                        const c = res.topCrop;
-                        setCrop({
-                          unit: "px",
-                          x: c.x,
-                          y: c.y,
-                          width: c.width,
-                          height: c.height,
-                        });
-                        setCropOpen(true);
-                      };
-                      img.src = url;
-                    }
+                  Button,
+                  {
+                    variant: "outlined",
+                    component: "label",
+                    htmlFor: "file-input",
+                    disabled: loading,
                   },
-                  onBlur: fileRegister.onBlur,
-                  name: fileRegister.name,
-                  ref: fileRegister.ref,
-                })
-              ,
+                  "Select File",
+                ),
+                React.createElement(
+                  IconButton,
+                  {
+                    color: "primary",
+                    component: "label",
+                    htmlFor: "file-input",
+                    "aria-label": "take picture",
+                    disabled: loading,
+                  },
+                  React.createElement(
+                    "span",
+                    { className: "material-icons" },
+                    "photo_camera",
+                  ),
+                ),
+                fileName &&
+                  React.createElement(
+                    Typography,
+                    { variant: "body2", sx: { ml: 2, display: "inline" } },
+                    fileName,
+                  ),
+              ),
+              React.createElement("input", {
+                id: "file-input",
+                type: "file",
+                hidden: true,
+                accept: ".jpg,.jpeg,.png,.webp,.pdf",
+                capture: "environment",
+                disabled: loading,
+                onChange: (e) => {
+                  fileRegister.onChange(e);
+                  setCroppedFile(null);
+                  setCrop(null);
+                  setCompletedCrop(null);
+                  setRotation(0);
+                  const f = e.target.files?.[0];
+                  setFileName(f?.name || "");
+                  if (f && f.type.startsWith("image/")) {
+                    const url = URL.createObjectURL(f);
+                    setImgSrc(url);
+                    const img = new Image();
+                    img.onload = async () => {
+                      const res = await window.smartcrop.crop(img, {
+                        width: img.width,
+                        height: img.height,
+                      });
+                      const c = res.topCrop;
+                      setCrop({
+                        unit: "px",
+                        x: c.x,
+                        y: c.y,
+                        width: c.width,
+                        height: c.height,
+                      });
+                      setCropOpen(true);
+                    };
+                    img.src = url;
+                  }
+                },
+                onBlur: fileRegister.onBlur,
+                name: fileRegister.name,
+                ref: fileRegister.ref,
+              }),
               React.createElement(
                 Dialog,
-                { open: cropOpen, onClose: () => setCropOpen(false), maxWidth: "md", fullWidth: true },
+                {
+                  open: cropOpen,
+                  onClose: () => setCropOpen(false),
+                  maxWidth: "md",
+                  fullWidth: true,
+                },
                 React.createElement(DialogTitle, null, "Crop Image"),
                 React.createElement(
                   DialogContent,
@@ -631,7 +747,7 @@
                         src: imgSrc,
                         style: { maxWidth: "100%" },
                       }),
-                    )
+                    ),
                 ),
                 React.createElement(
                   DialogActions,
@@ -639,26 +755,37 @@
                   React.createElement(
                     IconButton,
                     { onClick: rotateImage, sx: { mr: 1 } },
-                    React.createElement('span', { className: 'material-icons' }, 'rotate_right')
+                    React.createElement(
+                      "span",
+                      { className: "material-icons" },
+                      "rotate_right",
+                    ),
                   ),
-                  React.createElement(
-                    Button,
-                    { onClick: applyCrop },
-                    "Done",
-                  ),
+                  React.createElement(Button, { onClick: applyCrop }, "Done"),
                 ),
-              )
+              ),
             ),
             React.createElement(
               Button,
-                { variant: "contained", type: "submit", disabled: loading || !canSubmit },
-                loading
-                  ? React.createElement(MaterialUI.CircularProgress, { size: 24, color: "inherit" })
-                  : "Upload"
-              ),
+              {
+                variant: "contained",
+                type: "submit",
+                disabled: loading || !canSubmit,
+              },
+              loading
+                ? React.createElement(MaterialUI.CircularProgress, {
+                    size: 24,
+                    color: "inherit",
+                  })
+                : "Upload",
+            ),
             React.createElement(
               Stepper,
-              { activeStep: activeStep, orientation: "vertical", sx: { mt: 2 } },
+              {
+                activeStep: activeStep,
+                orientation: "vertical",
+                sx: { mt: 2 },
+              },
               steps.map((step, idx) =>
                 React.createElement(
                   Step,
@@ -678,14 +805,16 @@
                         },
                       },
                     },
-                    step.label
+                    step.label,
                   ),
                   React.createElement(
                     StepContent,
                     { TransitionProps: { unmountOnExit: false } },
                     step.logs.map((log, i) =>
                       typeof log === "object"
-                        ? renderReceiptTable(log, i)
+                        ? log.lineItems
+                          ? renderReceiptTable(log, i)
+                          : renderTransactionTable(log, i)
                         : React.createElement(
                             Typography,
                             {
@@ -700,12 +829,12 @@
                                     : "inherit",
                               },
                             },
-                            log
-                          )
-                    )
-                  )
-                )
-              )
+                            log,
+                          ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         );
