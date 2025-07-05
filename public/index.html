@@ -68,10 +68,10 @@
         const [fileName, setFileName] = useState("");
         const [loading, setLoading] = useState(false);
         const defaultSteps = [
-          { label: "Uploading image", done: false, logs: [] },
-          { label: "Request to Gemini", done: false, logs: [] },
-          { label: "Response from Gemini", done: false, logs: [] },
-          { label: "Response from YNAB", done: false, logs: [] },
+          { label: "Uploading image", done: false, logs: [], error: null },
+          { label: "Request to Gemini", done: false, logs: [], error: null },
+          { label: "Response from Gemini", done: false, logs: [], error: null },
+          { label: "Response from YNAB", done: false, logs: [], error: null },
         ];
         const defaultOpenSteps = [true, false, false, false];
         const [steps, setSteps] = useState(defaultSteps);
@@ -107,6 +107,20 @@
             return updated;
           });
           setActiveStep(index + 1);
+        };
+
+        const markError = (index, message) => {
+          setSteps((prev) => {
+            const updated = [...prev];
+            updated[index].error = message;
+            return updated;
+          });
+          setOpenSteps((prev) => {
+            const updated = [...prev];
+            updated[index] = true;
+            return updated;
+          });
+          setActiveStep(index);
         };
 
         const toggleStep = (index) => {
@@ -276,6 +290,7 @@
                     markStep(3);
                   } else if (evt.event === "error") {
                     addLog(activeStep, evt.data || "Upload failed");
+                    markError(activeStep, evt.data || "Upload failed");
                   }
                 }
               }
@@ -286,9 +301,11 @@
               setFileName("");
             } else {
               addLog(activeStep, "Upload failed");
+              markError(activeStep, "Upload failed");
             }
           } catch (err) {
             addLog(activeStep, err.message || "Network error");
+            markError(activeStep, err.message || "Network error");
           } finally {
             setLoading(false);
           }
@@ -492,6 +509,7 @@
                     StepLabel,
                     {
                       onClick: () => toggleStep(idx),
+                      error: !!step.error,
                       sx: {
                         cursor: "pointer",
                         "& .MuiStepIcon-root.Mui-completed": {
@@ -515,7 +533,14 @@
                             {
                               variant: "caption",
                               key: i,
-                              sx: { display: "block", whiteSpace: "pre" },
+                              sx: {
+                                display: "block",
+                                whiteSpace: "pre",
+                                color:
+                                  step.error && i === step.logs.length - 1
+                                    ? "error.main"
+                                    : "inherit",
+                              },
                             },
                             log
                           )
