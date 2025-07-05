@@ -73,12 +73,12 @@ const getGeneratingConfig = (
 });
 
 export const buildPrompt = (existingPayees: string[] | null) =>
-  `Process this slip. Make sure you ONLY use a category in the list of available enum values.${
-    existingPayees
-      ? `\n\nConsider the following existing merchants and pick the most appropriate one. If none are appropriate, use the merchant name from the receipt:\n${existingPayees
-          .map((p) => `- ${p}`)
-          .join("\n")}`
-      : ""
+  `Process this slip. Make sure you ONLY use a category in the list of available enum values. ${
+        existingPayees
+          ? `\n\nConsider the following existing merchants and pick the most appropriate one. If none are appropriate, use the merchant name from the receipt:\n${existingPayees
+              .map((p) => `- ${p}`)
+              .join("\n")}`
+          : ""
   }`;
 
 export const parseReceipt = async (

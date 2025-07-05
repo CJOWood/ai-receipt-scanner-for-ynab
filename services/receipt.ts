@@ -35,7 +35,7 @@ export const processAndUploadReceipt = async (
   }
 
   try {
-    await onProgress?.("request-gemini", buildPrompt(ynabPayees));
+    await onProgress?.("request-gemini", buildPrompt(null));
     receipt = await parseReceipt(
       fileBuffer,
       file.type,
