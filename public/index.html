@@ -60,7 +60,9 @@
           { label: "Request to Gemini", done: false, logs: [] },
           { label: "Response from Gemini", done: false, logs: [] },
         ];
+        const defaultOpenSteps = [true, false, false, false];
         const [steps, setSteps] = useState(defaultSteps);
+        const [openSteps, setOpenSteps] = useState(defaultOpenSteps);
         const [activeStep, setActiveStep] = useState(0);
 
         const addAccount = (acc) => {
@@ -83,7 +85,20 @@
             updated[index].done = true;
             return updated;
           });
+          setOpenSteps((prev) => {
+            const updated = [...prev];
+            updated[index] = true;
+            return updated;
+          });
           setActiveStep(index + 1);
+        };
+
+        const toggleStep = (index) => {
+          setOpenSteps((prev) => {
+            const updated = [...prev];
+            updated[index] = !updated[index];
+            return updated;
+          });
         };
 
         const addLog = (index, message) => {
@@ -100,7 +115,17 @@
             return;
           }
 
-          setSteps(defaultSteps);
+          const file = data.file[0];
+
+          setSteps(() => {
+            const updated = defaultSteps.map((s) => ({ ...s }));
+            updated[0].logs.push(
+              `File: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`
+            );
+            return updated;
+          });
+          setOpenSteps(defaultOpenSteps);
+          setActiveStep(0);
           setLoading(true);
 
           const formData = new FormData();
@@ -344,11 +369,23 @@
               steps.map((step, idx) =>
                 React.createElement(
                   Step,
-                  { key: idx, completed: step.done },
-                  React.createElement(StepLabel, null, step.label),
+                  { key: idx, completed: step.done, expanded: openSteps[idx] },
+                  React.createElement(
+                    StepLabel,
+                    {
+                      onClick: () => toggleStep(idx),
+                      sx: {
+                        cursor: "pointer",
+                        "& .MuiStepIcon-root.Mui-completed": {
+                          color: "success.main",
+                        },
+                      },
+                    },
+                    step.label
+                  ),
                   React.createElement(
                     StepContent,
-                    null,
+                    { TransitionProps: { unmountOnExit: false } },
                     step.logs.map((log, i) =>
                       React.createElement(
                         Typography,
