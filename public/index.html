@@ -33,7 +33,7 @@
     <!-- Expose runtime config -->
     <script src="/config.js"></script>
     <script>
-      const { useState } = React;
+      const { useState, useRef } = React;
       const { useForm, Controller } = ReactHookForm;
       const {
         TextField,
@@ -58,11 +58,16 @@
         Paper,
         IconButton,
         Stack,
+        Dialog,
+        DialogActions,
+        DialogContent,
+        DialogTitle,
+        Slider,
       } = MaterialUI;
 
       function App() {
         const authRequired = !window.APP_DISABLE_AUTH && !window.APP_TRUSTED_IPS;
-        const { register, handleSubmit, reset, control, watch } = useForm();
+        const { register, handleSubmit, reset, control, watch, setValue } = useForm();
         const fileRegister = register("file", { required: true });
 
         const [accounts, setAccounts] = useState(() => {
@@ -71,6 +76,13 @@
         });
         const [fileName, setFileName] = useState("");
         const [loading, setLoading] = useState(false);
+        const [selectedFile, setSelectedFile] = useState(null);
+        const [showCropper, setShowCropper] = useState(false);
+        const [imageSrc, setImageSrc] = useState(null);
+        const [initialCropPixels, setInitialCropPixels] = useState(null);
+        const [crop, setCrop] = useState({ x: 0, y: 0 });
+        const [zoom, setZoom] = useState(1);
+        const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
         const defaultSteps = [
           { label: "Uploading image", done: false, logs: [], error: null },
           { label: "Request to Gemini", done: false, logs: [], error: null },
@@ -97,6 +109,86 @@
           const updated = accounts.filter((a) => a !== acc);
           setAccounts(updated);
           localStorage.setItem("accounts", JSON.stringify(updated));
+        };
+
+        const detectAutoCrop = (img) => {
+          const canvas = document.createElement("canvas");
+          const w = img.naturalWidth;
+          const h = img.naturalHeight;
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0);
+          const data = ctx.getImageData(0, 0, w, h).data;
+          let left = w,
+            right = 0,
+            top = h,
+            bottom = 0;
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              const i = (y * w + x) * 4;
+              const r = data[i];
+              const g = data[i + 1];
+              const b = data[i + 2];
+              const a = data[i + 3];
+              if (a > 10 && (r < 240 || g < 240 || b < 240)) {
+                if (x < left) left = x;
+                if (x > right) right = x;
+                if (y < top) top = y;
+                if (y > bottom) bottom = y;
+              }
+            }
+          }
+          if (right < left || bottom < top) {
+            return { x: 0, y: 0, width: w, height: h };
+          }
+          const pad = 10;
+          left = Math.max(left - pad, 0);
+          top = Math.max(top - pad, 0);
+          right = Math.min(right + pad, w);
+          bottom = Math.min(bottom + pad, h);
+          return { x: left, y: top, width: right - left, height: bottom - top };
+        };
+
+        const getCroppedBlob = async (src, pixels) => {
+          const img = await new Promise((res, rej) => {
+            const i = new Image();
+            i.onload = () => res(i);
+            i.onerror = rej;
+            i.src = src;
+          });
+          const canvas = document.createElement("canvas");
+          canvas.width = pixels.width;
+          canvas.height = pixels.height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(
+            img,
+            pixels.x,
+            pixels.y,
+            pixels.width,
+            pixels.height,
+            0,
+            0,
+            pixels.width,
+            pixels.height
+          );
+          return new Promise((res) =>
+            canvas.toBlob((b) => res(b), "image/jpeg", 0.95)
+          );
+        };
+
+        const applyCrop = async () => {
+          if (!imageSrc || !croppedAreaPixels) {
+            setShowCropper(false);
+            return;
+          }
+          const blob = await getCroppedBlob(imageSrc, croppedAreaPixels);
+          const newFile = new File([blob], selectedFile.name, {
+            type: "image/jpeg",
+          });
+          setSelectedFile(newFile);
+          setValue("file", [newFile]);
+          setShowCropper(false);
         };
 
         const markStep = (index) => {
@@ -217,12 +309,11 @@
         };
 
         const onSubmit = async (data) => {
-          if (!data.file?.[0]) {
+          const file = selectedFile || data.file?.[0];
+          if (!file) {
             alert("Please select a file");
             return;
           }
-
-          const file = data.file[0];
 
           setSteps(() => {
             const updated = defaultSteps.map((s) => ({ ...s }));
@@ -237,7 +328,7 @@
 
           const formData = new FormData();
           formData.append("account", data.account);
-          formData.append("file", data.file[0]);
+          formData.append("file", file);
 
           const headers = {};
           if (authRequired) {
@@ -303,6 +394,8 @@
             if (res.ok) {
               reset();
               setFileName("");
+              setSelectedFile(null);
+              setImageSrc(null);
             } else {
               addLog(activeStep, "Upload failed");
               markError(activeStep, "Upload failed");
@@ -488,7 +581,28 @@
                   disabled: loading,
                   onChange: (e) => {
                     fileRegister.onChange(e);
-                    setFileName(e.target.files?.[0]?.name || "");
+                    const f = e.target.files?.[0];
+                    setFileName(f?.name || "");
+                    if (!f) return;
+                    setSelectedFile(f);
+                    setValue("file", [f]);
+                    if (f.type.startsWith("image/")) {
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const src = reader.result;
+                        const img = new Image();
+                        img.onload = () => {
+                          const area = detectAutoCrop(img);
+                          setInitialCropPixels(area);
+                          setCrop({ x: 0, y: 0 });
+                          setZoom(1);
+                          setImageSrc(src);
+                          setShowCropper(true);
+                        };
+                        img.src = src;
+                      };
+                      reader.readAsDataURL(f);
+                    }
                   },
                   onBlur: fileRegister.onBlur,
                   name: fileRegister.name,
@@ -553,6 +667,63 @@
                 )
               )
             ),
+            React.createElement(
+              Dialog,
+              {
+                open: showCropper,
+                onClose: () => setShowCropper(false),
+                maxWidth: "md",
+                fullWidth: true,
+              },
+              React.createElement(DialogTitle, null, "Crop Image"),
+              React.createElement(
+                DialogContent,
+                { dividers: true },
+                React.createElement(
+                  "div",
+                  {
+                    style: {
+                      position: "relative",
+                      width: "100%",
+                      height: 400,
+                    },
+                  },
+                  imageSrc &&
+                    React.createElement(ReactEasyCrop.default, {
+                      image: imageSrc,
+                      crop: crop,
+                      zoom: zoom,
+                      aspect: 4 / 3,
+                      onCropChange: (c) => setCrop(c),
+                      onZoomChange: (z) => setZoom(z),
+                      onCropComplete: (_, pixels) => setCroppedAreaPixels(pixels),
+                      initialCroppedAreaPixels: initialCropPixels || undefined,
+                    })
+                ),
+                React.createElement(Slider, {
+                  value: zoom,
+                  min: 1,
+                  max: 3,
+                  step: 0.1,
+                  onChange: (_, v) => setZoom(v),
+                  sx: { mt: 2 },
+                })
+              ),
+              React.createElement(
+                DialogActions,
+                null,
+                React.createElement(
+                  Button,
+                  { onClick: () => setShowCropper(false) },
+                  "Cancel"
+                ),
+                React.createElement(
+                  Button,
+                  { onClick: applyCrop, variant: "contained" },
+                  "Apply"
+                )
+              )
+            )
           ),
         );
       }
