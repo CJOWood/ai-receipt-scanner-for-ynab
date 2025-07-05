@@ -41,9 +41,10 @@
         Box,
         Autocomplete,
         createFilterOptions,
-        List,
-        ListItem,
-        ListItemText,
+        Stepper,
+        Step,
+        StepLabel,
+        StepContent,
         Checkbox,
         LoadingButton,
       } = MaterialUI;
@@ -60,12 +61,13 @@
         const [fileName, setFileName] = useState("");
         const [loading, setLoading] = useState(false);
         const defaultSteps = [
-          { label: "Uploading image", done: false },
-          { label: "Response from YNAB", done: false },
-          { label: "Request to Gemini", done: false },
-          { label: "Response from Gemini", done: false },
+          { label: "Uploading image", done: false, logs: [] },
+          { label: "Response from YNAB", done: false, logs: [] },
+          { label: "Request to Gemini", done: false, logs: [] },
+          { label: "Response from Gemini", done: false, logs: [] },
         ];
         const [steps, setSteps] = useState(defaultSteps);
+        const [activeStep, setActiveStep] = useState(0);
 
         const addAccount = (acc) => {
           if (acc && !accounts.includes(acc)) {
@@ -85,6 +87,15 @@
           setSteps((prev) => {
             const updated = [...prev];
             updated[index].done = true;
+            return updated;
+          });
+          setActiveStep(index + 1);
+        };
+
+        const addLog = (index, message) => {
+          setSteps((prev) => {
+            const updated = [...prev];
+            updated[index].logs.push(message);
             return updated;
           });
         };
@@ -109,24 +120,67 @@
           }
 
           try {
-            markStep(0);
-            const res = await fetch("/upload", {
+            const res = await fetch("/upload/events", {
               method: "POST",
               headers,
               body: formData,
             });
-            const result = await res.json();
-            markStep(1);
-            markStep(2);
-            markStep(3);
-            if (!res.ok) {
-              alert(result.error || "Upload failed");
-            } else {
+
+            if (!res.body) {
+              throw new Error("No response body");
+            }
+
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+
+            while (true) {
+              const { value, done } = await reader.read();
+              if (done) break;
+              buffer += decoder.decode(value, { stream: true });
+              let parts = buffer.split("\n\n");
+              buffer = parts.pop();
+              for (const part of parts) {
+                const line = part
+                  .split("\n")
+                  .find((l) => l.startsWith("data:"));
+                if (line) {
+                  const evt = JSON.parse(line.slice(5));
+                  if (evt.event === "upload-start") {
+                    addLog(0, "Uploading file");
+                  } else if (evt.event === "categories-loaded") {
+                    addLog(0, "Categories loaded");
+                  } else if (evt.event === "payees-loaded") {
+                    addLog(0, "Payees loaded");
+                  } else if (evt.event === "upload-file-done") {
+                    addLog(0, "File uploaded");
+                    markStep(0);
+                  } else if (evt.event === "request-ynab") {
+                    addLog(1, "Creating YNAB transaction");
+                  } else if (evt.event === "response-ynab") {
+                    addLog(1, "YNAB transaction created");
+                    markStep(1);
+                  } else if (evt.event === "request-gemini") {
+                    addLog(2, "Requesting Gemini");
+                    markStep(2);
+                  } else if (evt.event === "response-gemini") {
+                    addLog(3, JSON.stringify(evt.data));
+                    markStep(3);
+                  } else if (evt.event === "error") {
+                    addLog(activeStep, evt.data || "Upload failed");
+                  }
+                }
+              }
+            }
+
+            if (res.ok) {
               reset();
               setFileName("");
+            } else {
+              addLog(activeStep, "Upload failed");
             }
           } catch (err) {
-            alert("Network error");
+            addLog(activeStep, err.message || "Network error");
           } finally {
             setLoading(false);
           }
@@ -289,14 +343,24 @@
               "Upload",
             ),
             React.createElement(
-              List,
-              { sx: { mt: 2 } },
+              Stepper,
+              { activeStep: activeStep, orientation: "vertical", sx: { mt: 2 } },
               steps.map((step, idx) =>
                 React.createElement(
-                  ListItem,
-                  { key: idx },
-                  React.createElement(Checkbox, { checked: step.done, readOnly: true }),
-                  React.createElement(ListItemText, { primary: step.label })
+                  Step,
+                  { key: idx, completed: step.done },
+                  React.createElement(StepLabel, null, step.label),
+                  React.createElement(
+                    StepContent,
+                    null,
+                    step.logs.map((log, i) =>
+                      React.createElement(
+                        Typography,
+                        { variant: "caption", key: i, sx: { display: "block" } },
+                        log
+                      )
+                    )
+                  )
                 )
               )
             ),
