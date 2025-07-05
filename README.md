@@ -10,6 +10,8 @@ A service that processes receipt images using Google's Gemini AI and automatical
 - Creates transactions in YNAB with proper categorization
 - Supports split transactions for line items
 - Basic auth protection for API endpoints
+- Built-in cropping interface with automatic crop suggestion
+- Rotate images before upload
 
 ## Quick Start
 

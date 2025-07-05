@@ -97,6 +97,7 @@
         const [crop, setCrop] = useState(null);
         const [completedCrop, setCompletedCrop] = useState(null);
         const [croppedFile, setCroppedFile] = useState(null);
+        const [rotation, setRotation] = useState(0);
         const imgRef = React.useRef(null);
 
         const addAccount = (acc) => {
@@ -147,6 +148,48 @@
             updated[index] = !updated[index];
             return updated;
           });
+        };
+
+        const rotateImage = async () => {
+          if (!imgRef.current) return;
+          const canvas = document.createElement("canvas");
+          canvas.width = imgRef.current.naturalHeight;
+          canvas.height = imgRef.current.naturalWidth;
+          const ctx = canvas.getContext("2d");
+          ctx.translate(canvas.width / 2, canvas.height / 2);
+          ctx.rotate(Math.PI / 2);
+          ctx.drawImage(
+            imgRef.current,
+            -imgRef.current.naturalWidth / 2,
+            -imgRef.current.naturalHeight / 2,
+          );
+          const blob = await new Promise((res) =>
+            canvas.toBlob(res, "image/jpeg")
+          );
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            setImgSrc(url);
+            setRotation((r) => (r + 90) % 360);
+            setCrop(null);
+            setCompletedCrop(null);
+            setCroppedFile(null);
+            const img = new Image();
+            img.onload = async () => {
+              const res = await window.smartcrop.crop(img, {
+                width: img.width,
+                height: img.height,
+              });
+              const c = res.topCrop;
+              setCrop({
+                unit: "px",
+                x: c.x,
+                y: c.y,
+                width: c.width,
+                height: c.height,
+              });
+            };
+            img.src = url;
+          }
         };
 
         const applyCrop = async () => {
@@ -537,6 +580,7 @@
                     setCroppedFile(null);
                     setCrop(null);
                     setCompletedCrop(null);
+                    setRotation(0);
                     const f = e.target.files?.[0];
                     setFileName(f?.name || "");
                     if (f && f.type.startsWith("image/")) {
@@ -592,6 +636,11 @@
                 React.createElement(
                   DialogActions,
                   null,
+                  React.createElement(
+                    IconButton,
+                    { onClick: rotateImage, sx: { mr: 1 } },
+                    React.createElement('span', { className: 'material-icons' }, 'rotate_right')
+                  ),
                   React.createElement(
                     Button,
                     { onClick: applyCrop },
