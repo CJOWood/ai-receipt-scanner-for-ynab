@@ -7,6 +7,7 @@ import { zValidator } from "@hono/zod-validator";
 import env from "./utils/env-vars";
 import { logger } from "hono/logger";
 import { processAndUploadReceipt } from "./services/receipt";
+import { ipInRange, ipInCidr } from "./utils/ip-matcher";
 
 const app = new Hono();
 
@@ -17,9 +18,29 @@ const uploadAuth = async (c: Context, next: Next) => {
   const ipHeader = c.req.header("x-forwarded-for");
   const clientIp = ipHeader?.split(",")[0].trim();
 
-  if (allowed.length > 0 && clientIp && allowed.includes(clientIp)) {
-    await next();
-    return;
+  if (allowed.length > 0 && clientIp) {
+    let permitted = false;
+    for (const entry of allowed) {
+      if (entry.includes("/")) {
+        if (ipInCidr(clientIp, entry)) {
+          permitted = true;
+          break;
+        }
+      } else if (entry.includes("-")) {
+        const [start, end] = entry.split("-").map((s) => s.trim());
+        if (start && end && ipInRange(clientIp, start, end)) {
+          permitted = true;
+          break;
+        }
+      } else if (entry === clientIp) {
+        permitted = true;
+        break;
+      }
+    }
+    if (permitted) {
+      await next();
+      return;
+    }
   }
 
   await basicAuth({
