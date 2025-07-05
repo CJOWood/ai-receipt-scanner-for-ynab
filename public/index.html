@@ -1,106 +1,208 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>YNAB Slip Uploader</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 40px; }
-    form div { margin-bottom: 10px; }
-    label { display:block; margin-bottom:4px; }
-    input, select, button { padding: 6px; }
-  </style>
-</head>
-<body>
-  <div id="root"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YNAB Slip Uploader</title>
+    <style>
+      body {
+        margin: 40px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
 
-  <!-- React and ReactDOM -->
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <!-- react-hook-form -->
-  <script src="https://unpkg.com/react-hook-form/dist/index.umd.js"></script>
-  <script>
-    const { useState, useEffect } = React;
-    const { useForm } = ReactHookForm;
+    <!-- React and ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- react-hook-form -->
+    <script src="https://unpkg.com/react-hook-form/dist/index.umd.js"></script>
+    <!-- MUI and Emotion -->
+    <script src="https://unpkg.com/@emotion/react@11/dist/emotion-react.umd.min.js"></script>
+    <script src="https://unpkg.com/@emotion/styled@11/dist/emotion-styled.umd.min.js"></script>
+    <script src="https://unpkg.com/@mui/material@5/umd/material-ui.production.min.js"></script>
+    <!-- Expose runtime config -->
+    <script src="/config.js"></script>
+    <script>
+      const { useState } = React;
+      const { useForm, Controller } = ReactHookForm;
+      const {
+        TextField,
+        Button,
+        Container,
+        Typography,
+        Box,
+        Autocomplete,
+        createFilterOptions,
+      } = MaterialUI;
 
-    function App() {
-      const { register, handleSubmit, reset } = useForm();
-      const [accounts, setAccounts] = useState(() => {
-        const stored = localStorage.getItem('accounts');
-        return stored ? JSON.parse(stored) : [];
-      });
-      const [newAccount, setNewAccount] = useState('');
-      const addAccount = () => {
-        if (newAccount && !accounts.includes(newAccount)) {
-          const updated = [...accounts, newAccount];
-          setAccounts(updated);
-          localStorage.setItem('accounts', JSON.stringify(updated));
-          setNewAccount('');
-        }
-      };
+      function App() {
+        const authRequired = !window.APP_FRONTEND_URL;
+        const { register, handleSubmit, reset, control } = useForm();
 
-      const onSubmit = async (data) => {
-        if (!data.file?.[0]) {
-          alert('Please select a file');
-          return;
-        }
-        const formData = new FormData();
-        formData.append('account', data.account);
-        formData.append('file', data.file[0]);
-        const auth = btoa(`${data.apiKey}:${data.apiSecret}`);
-        try {
-          const res = await fetch('/upload', {
-            method: 'POST',
-            headers: { 'Authorization': `Basic ${auth}` },
-            body: formData
-          });
-          const result = await res.json();
-          if (!res.ok) {
-            alert(result.error || 'Upload failed');
-          } else {
-            alert('Upload successful');
-            reset();
+        const [accounts, setAccounts] = useState(() => {
+          const stored = localStorage.getItem("accounts");
+          return stored ? JSON.parse(stored) : [];
+        });
+
+        const addAccount = (acc) => {
+          if (acc && !accounts.includes(acc)) {
+            const updated = [...accounts, acc];
+            setAccounts(updated);
+            localStorage.setItem("accounts", JSON.stringify(updated));
           }
-        } catch (err) {
-          alert('Network error');
-        }
-      };
+        };
 
-      return React.createElement('div', null,
-        React.createElement('h2', null, 'YNAB Slip Uploader'),
-        React.createElement('form', { onSubmit: handleSubmit(onSubmit) },
-          React.createElement('div', null,
-            React.createElement('label', null, 'API Key'),
-            React.createElement('input', { type: 'text', ...register('apiKey', { required: true }) })
+        const onSubmit = async (data) => {
+          if (!data.file?.[0]) {
+            alert("Please select a file");
+            return;
+          }
+
+          const formData = new FormData();
+          formData.append("account", data.account);
+          formData.append("file", data.file[0]);
+
+          const headers = {};
+          if (authRequired) {
+            const auth = btoa(`${data.apiKey}:${data.apiSecret}`);
+            headers["Authorization"] = `Basic ${auth}`;
+          }
+
+          try {
+            const res = await fetch("/upload", {
+              method: "POST",
+              headers,
+              body: formData,
+            });
+            const result = await res.json();
+            if (!res.ok) {
+              alert(result.error || "Upload failed");
+            } else {
+              alert("Upload successful");
+              reset();
+            }
+          } catch (err) {
+            alert("Network error");
+          }
+        };
+
+        const filter = createFilterOptions();
+
+        return React.createElement(
+          Container,
+          null,
+          React.createElement(
+            Typography,
+            { variant: "h5", component: "h2", sx: { mb: 2 } },
+            "YNAB Slip Uploader",
           ),
-          React.createElement('div', null,
-            React.createElement('label', null, 'API Secret'),
-            React.createElement('input', { type: 'password', ...register('apiSecret', { required: true }) })
+          React.createElement(
+            "form",
+            { onSubmit: handleSubmit(onSubmit) },
+            authRequired &&
+              React.createElement(
+                Box,
+                { sx: { mb: 2 } },
+                React.createElement(TextField, {
+                  label: "API Key",
+                  fullWidth: true,
+                  margin: "dense",
+                  ...register("apiKey", { required: true }),
+                }),
+              ),
+            authRequired &&
+              React.createElement(
+                Box,
+                { sx: { mb: 2 } },
+                React.createElement(TextField, {
+                  label: "API Secret",
+                  type: "password",
+                  fullWidth: true,
+                  margin: "dense",
+                  ...register("apiSecret", { required: true }),
+                }),
+              ),
+            React.createElement(
+              Box,
+              { sx: { mb: 2 } },
+              React.createElement(Controller, {
+                control,
+                name: "account",
+                rules: { required: true },
+                render: ({ field }) =>
+                  React.createElement(Autocomplete, {
+                    freeSolo: true,
+                    selectOnFocus: true,
+                    clearOnBlur: true,
+                    handleHomeEndKeys: true,
+                    options: accounts.map((acc) => ({ title: acc })),
+                    value: field.value ? { title: field.value } : null,
+                    onChange: (event, newValue) => {
+                      if (typeof newValue === "string") {
+                        field.onChange(newValue);
+                        addAccount(newValue);
+                      } else if (newValue && newValue.inputValue) {
+                        field.onChange(newValue.inputValue);
+                        addAccount(newValue.inputValue);
+                      } else if (newValue) {
+                        field.onChange(newValue.title);
+                      } else {
+                        field.onChange("");
+                      }
+                    },
+                    filterOptions: (options, params) => {
+                      const filtered = filter(options, params);
+                      const { inputValue } = params;
+                      if (inputValue !== "" && !accounts.includes(inputValue)) {
+                        filtered.push({
+                          inputValue,
+                          title: `Add "${inputValue}"`,
+                        });
+                      }
+                      return filtered;
+                    },
+                    getOptionLabel: (option) => {
+                      if (typeof option === "string") {
+                        return option;
+                      }
+                      if (option.inputValue) {
+                        return option.inputValue;
+                      }
+                      return option.title;
+                    },
+                    renderOption: (props, option) =>
+                      React.createElement("li", props, option.title),
+                    renderInput: (params) =>
+                      React.createElement(TextField, {
+                        ...params,
+                        label: "Bank Account",
+                      }),
+                  }),
+              }),
+            ),
+            React.createElement(
+              Box,
+              { sx: { mb: 2 } },
+              React.createElement("input", {
+                type: "file",
+                accept: ".jpg,.jpeg,.png,.webp,.pdf",
+                ...register("file", { required: true }),
+              }),
+            ),
+            React.createElement(
+              Button,
+              { variant: "contained", type: "submit" },
+              "Upload",
+            ),
           ),
-          React.createElement('div', null,
-            React.createElement('label', null, 'Bank Account'),
-            React.createElement('select', { ...register('account', { required: true }) },
-              accounts.map(acc => React.createElement('option', { key: acc, value: acc }, acc))
-            )
-          ),
-          React.createElement('div', null,
-            React.createElement('label', null, 'Add Bank Account'),
-            React.createElement('input', {
-              value: newAccount,
-              onChange: e => setNewAccount(e.target.value)
-            }),
-            React.createElement('button', { type: 'button', onClick: addAccount }, 'Add')
-          ),
-          React.createElement('div', null,
-            React.createElement('label', null, 'Slip File'),
-            React.createElement('input', { type: 'file', accept: '.jpg,.jpeg,.png,.webp,.pdf', ...register('file', { required: true }) })
-          ),
-          React.createElement('button', { type: 'submit' }, 'Upload')
-        )
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(
+        React.createElement(App),
       );
-    }
-
-    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
-  </script>
-</body>
+    </script>
+  </body>
 </html>
