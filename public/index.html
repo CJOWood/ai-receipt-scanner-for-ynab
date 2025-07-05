@@ -9,6 +9,10 @@
         margin: 40px;
       }
     </style>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+    />
   </head>
   <body>
     <div id="root"></div>
@@ -48,6 +52,8 @@
         TableHead,
         TableRow,
         Paper,
+        IconButton,
+        Stack,
       } = MaterialUI;
 
       function App() {
@@ -414,18 +420,51 @@
                   }),
               }),
             ),
-            React.createElement(
-              Box,
-              { sx: { mb: 2 } },
               React.createElement(
-                Button,
-                { variant: "outlined", component: "label", disabled: loading },
-                "Select File",
+                Box,
+                { sx: { mb: 2 } },
+                React.createElement(
+                  Stack,
+                  { direction: "row", alignItems: "center", spacing: 1 },
+                  React.createElement(
+                    Button,
+                    {
+                      variant: "outlined",
+                      component: "label",
+                      htmlFor: "file-input",
+                      disabled: loading,
+                    },
+                    "Select File"
+                  ),
+                  React.createElement(
+                    IconButton,
+                    {
+                      color: "primary",
+                      component: "label",
+                      htmlFor: "file-input",
+                      "aria-label": "take picture",
+                      disabled: loading,
+                    },
+                    React.createElement(
+                      "span",
+                      { className: "material-icons" },
+                      "photo_camera"
+                    )
+                  ),
+                  fileName &&
+                    React.createElement(
+                      Typography,
+                      { variant: "body2", sx: { ml: 2, display: "inline" } },
+                      fileName
+                    )
+                ),
                 React.createElement("input", {
-                    type: "file",
-                    hidden: true,
-                    accept: ".jpg,.jpeg,.png,.webp,.pdf",
-                    disabled: loading,
+                  id: "file-input",
+                  type: "file",
+                  hidden: true,
+                  accept: ".jpg,.jpeg,.png,.webp,.pdf",
+                  capture: "environment",
+                  disabled: loading,
                   onChange: (e) => {
                     fileRegister.onChange(e);
                     setFileName(e.target.files?.[0]?.name || "");
@@ -435,13 +474,6 @@
                   ref: fileRegister.ref,
                 })
               ),
-              fileName &&
-                React.createElement(
-                  Typography,
-                  { variant: "body2", sx: { ml: 2, display: "inline" } },
-                  fileName
-                )
-            ),
               React.createElement(
                 Button,
                 { variant: "contained", type: "submit", disabled: loading || !canSubmit },
