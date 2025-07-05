@@ -4,7 +4,7 @@ import {
   getAllEnvelopes as getAllCategories,
   getAllPayees,
 } from "./budget";
-import { parseReceipt } from "./gen-ai";
+import { parseReceipt, buildPrompt } from "./gen-ai";
 import { getStorageService } from "./storage";
 import env from "../utils/env-vars";
 
@@ -35,7 +35,7 @@ export const processAndUploadReceipt = async (
   }
 
   try {
-    await onProgress?.("request-gemini");
+    await onProgress?.("request-gemini", buildPrompt(ynabPayees));
     receipt = await parseReceipt(
       fileBuffer,
       file.type,
