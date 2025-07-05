@@ -57,7 +57,7 @@
       } = MaterialUI;
 
       function App() {
-        const authRequired = !window.APP_TRUSTED_IPS;
+        const authRequired = !window.APP_DISABLE_AUTH && !window.APP_TRUSTED_IPS;
         const { register, handleSubmit, reset, control, watch } = useForm();
         const fileRegister = register("file", { required: true });
 

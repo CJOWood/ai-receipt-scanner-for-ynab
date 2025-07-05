@@ -14,6 +14,10 @@ const app = new Hono();
 app.use(logger());
 
 const uploadAuth = async (c: Context, next: Next) => {
+  if (env.APP_DISABLE_AUTH) {
+    await next();
+    return;
+  }
   const allowed = env.APP_TRUSTED_IPS;
   const ipHeader = c.req.header("x-forwarded-for");
   const clientIp = ipHeader?.split(",")[0].trim();
@@ -126,7 +130,9 @@ app.post(
         await stream.writeSSE({ data: JSON.stringify({ event: "done" }) });
       },
       async (err: Error, stream: SSEStreamingApi) => {
-        await stream.writeSSE({ data: JSON.stringify({ event: "error", data: err.message }) });
+        await stream.writeSSE({
+          data: JSON.stringify({ event: "error", data: err.message }),
+        });
       },
     );
   },
@@ -138,7 +144,9 @@ app.get("/healthz", async (c) => {
 
 // Expose selected env vars to the frontend
 app.get("/config.js", (c) => {
-  const script = `window.APP_TRUSTED_IPS = ${JSON.stringify(env.APP_TRUSTED_IPS.join(","))};`;
+  const script = `window.APP_TRUSTED_IPS = ${JSON.stringify(
+    env.APP_TRUSTED_IPS.join(","),
+  )};\nwindow.APP_DISABLE_AUTH = ${JSON.stringify(env.APP_DISABLE_AUTH)};`;
   return c.text(script, 200, {
     "content-type": "application/javascript",
   });
