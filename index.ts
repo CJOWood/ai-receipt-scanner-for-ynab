@@ -1,7 +1,7 @@
 import { Hono, type Context, type Next } from "hono";
 import { basicAuth } from "hono/basic-auth";
 import { serveStatic } from "hono/bun";
-import { streamSSE } from "hono/helper/streaming";
+import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import env from "./utils/env-vars";

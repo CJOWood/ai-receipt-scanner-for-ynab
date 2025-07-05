@@ -22,12 +22,6 @@
     <script src="https://unpkg.com/@emotion/react@11/dist/emotion-react.umd.min.js"></script>
     <script src="https://unpkg.com/@emotion/styled@11/dist/emotion-styled.umd.min.js"></script>
     <script src="https://unpkg.com/@mui/material@5/umd/material-ui.production.min.js"></script>
-    <!-- LoadingButton from MUI Lab -->
-    <script type="module">
-      import { LoadingButton } from "https://unpkg.com/@mui/lab/index.js?module";
-      window.MaterialUI = window.MaterialUI || {};
-      window.MaterialUI.LoadingButton = LoadingButton;
-    </script>
     <!-- Expose runtime config -->
     <script src="/config.js"></script>
     <script>
@@ -338,9 +332,11 @@
                 )
             ),
             React.createElement(
-              LoadingButton,
-              { variant: "contained", type: "submit", loading: loading },
-              "Upload",
+              Button,
+              { variant: "contained", type: "submit", disabled: loading },
+              loading
+                ? React.createElement(MaterialUI.CircularProgress, { size: 24, color: "inherit" })
+                : "Upload"
             ),
             React.createElement(
               Stepper,
