@@ -152,6 +152,9 @@ app.get("/config.js", (c) => {
   });
 });
 
+// Expose node_modules for client-side dependencies managed by Bun
+app.get("/node_modules/*", serveStatic({ root: "." }));
+
 // Serve the front-end from the public directory
 app.get("/*", serveStatic({ root: "./public" }));
 
