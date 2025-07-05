@@ -13,11 +13,11 @@ const app = new Hono();
 app.use(logger());
 
 const uploadAuth = async (c: Context, next: Next) => {
-  const allowed = env.APP_FRONTEND_URL;
-  const origin = c.req.header("origin") || "";
-  const referer = c.req.header("referer") || "";
+  const allowed = env.APP_TRUSTED_IPS;
+  const ipHeader = c.req.header("x-forwarded-for");
+  const clientIp = ipHeader?.split(",")[0].trim();
 
-  if (allowed && (origin.startsWith(allowed) || referer.startsWith(allowed))) {
+  if (allowed.length > 0 && clientIp && allowed.includes(clientIp)) {
     await next();
     return;
   }
@@ -117,7 +117,7 @@ app.get("/healthz", async (c) => {
 
 // Expose selected env vars to the frontend
 app.get("/config.js", (c) => {
-  const script = `window.APP_FRONTEND_URL = ${JSON.stringify(env.APP_FRONTEND_URL || "")};`;
+  const script = `window.APP_TRUSTED_IPS = ${JSON.stringify(env.APP_TRUSTED_IPS.join(","))};`;
   return c.text(script, 200, {
     "content-type": "application/javascript",
   });
