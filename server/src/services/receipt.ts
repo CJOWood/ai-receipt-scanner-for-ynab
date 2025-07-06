@@ -75,6 +75,22 @@ export const processAndUploadReceipt = async (
   return receipt;
 };
 
+export const uploadReceiptFile = async (
+  merchant: string,
+  transactionDate: string,
+  file: File
+): Promise<void> => {
+  if (!storageService) {
+    return;
+  }
+
+  await storageService.uploadFile(
+    merchant,
+    new Date(transactionDate),
+    file
+  );
+};
+
 export class ReceiptParseError extends Error {
   constructor() {
     super("Failed to parse the receipt");
