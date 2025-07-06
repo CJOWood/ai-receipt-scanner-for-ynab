@@ -1,104 +1,185 @@
-import { useState } from 'react'
-import beaver from './assets/beaver.svg'
-import type { ApiResponse, Receipt } from 'shared'
-import './App.css'
+import { useEffect, useState } from 'react'
+import { ThemeProvider, createTheme } from '@mui/material/styles'
+import {
+  Autocomplete,
+  Box,
+  Button,
+  Chip,
+  Container,
+  Step,
+  StepContent,
+  StepLabel,
+  Stepper,
+  TextField,
+  Typography,
+} from '@mui/material'
+import type { Receipt } from 'shared'
 
-const SERVER_URL = import.meta.env.APP_SERVER_URL || "http://localhost:3000"
+const SERVER_URL = import.meta.env.APP_SERVER_URL || 'http://localhost:3000'
+
+const theme = createTheme({ palette: { mode: 'dark' } })
+const steps = [
+  'Get YNAB Data',
+  'Analyze Receipt',
+  'Process Data',
+  'Create YNAB Transaction',
+  'Save File',
+]
 
 function App() {
-  const [data, setData] = useState<ApiResponse | undefined>()
+  const [categories, setCategories] = useState<string[]>(() => {
+    const saved = localStorage.getItem('categories')
+    return saved ? JSON.parse(saved) : []
+  })
+  const [file, setFile] = useState<File | null>(null)
+  const [activeStep, setActiveStep] = useState<number>(-1)
+  const [logs, setLogs] = useState<string[]>(Array(steps.length).fill(''))
 
-  async function sendHelloRequest() {
-    try {
-      const req = await fetch(`${SERVER_URL}/hello`)
-      const res: ApiResponse = await req.json()
-      setData(res)
-    } catch (error) {
-      console.log(error)
+  useEffect(() => {
+    localStorage.setItem('categories', JSON.stringify(categories))
+  }, [categories])
+
+  const updateLog = (index: number, message: string) => {
+    setLogs((prev) => {
+      const arr = [...prev]
+      arr[index] = message
+      return arr
+    })
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0])
     }
   }
 
-  async function sendUploadRequest() {
+  const processReceipt = async () => {
+    if (!file) {
+      alert('Please select a receipt image')
+      return
+    }
+
+    let ynabInfo: any
+    setActiveStep(0)
     try {
-      const file = new File(
-        [
-          Buffer.from(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg",
-            "base64"
-          ),
-        ],
-        "receipt.pdf",
-        {
-          type: "image/png",
-          lastModified: Date.now(),
-        }
-      );
+      const res = await fetch(`${SERVER_URL}/ynab-info`)
+      ynabInfo = await res.json()
+      updateLog(0, 'Fetched YNAB info')
+    } catch (err: any) {
+      updateLog(0, `Error: ${err.message}`)
+      return
+    }
 
-      const infoRes = await fetch(`${SERVER_URL}/ynab-info`);
-      const ynabInfo = await infoRes.json();
-
-      const parseData = new FormData();
-      parseData.append("file", file);
-      parseData.append("categories", JSON.stringify(ynabInfo.categories));
-      parseData.append("payees", JSON.stringify(ynabInfo.payees));
+    let receipt: Receipt
+    setActiveStep(1)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      form.append(
+        'categories',
+        JSON.stringify(categories.length ? categories : ynabInfo.categories)
+      )
+      form.append('payees', JSON.stringify(ynabInfo.payees))
       const parseRes = await fetch(`${SERVER_URL}/parse-receipt`, {
-        method: "POST",
-        body: parseData,
-      });
-      const receipt: Receipt = await parseRes.json();
+        method: 'POST',
+        body: form,
+      })
+      receipt = await parseRes.json()
+      updateLog(1, 'Receipt analyzed')
+    } catch (err: any) {
+      updateLog(1, `Error: ${err.message}`)
+      return
+    }
 
+    setActiveStep(2)
+    updateLog(2, 'Processing data')
+
+    setActiveStep(3)
+    try {
       await fetch(`${SERVER_URL}/create-transaction`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ account: "test-account", receipt }),
-      });
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account: 'test-account', receipt }),
+      })
+      updateLog(3, 'Transaction created')
+    } catch (err: any) {
+      updateLog(3, `Error: ${err.message}`)
+      return
+    }
 
-      const uploadData = new FormData();
-      uploadData.append("merchant", receipt.merchant);
-      uploadData.append("transactionDate", receipt.transactionDate);
-      uploadData.append("file", file);
-      await fetch(`${SERVER_URL}/upload-file`, {
-        method: "POST",
-        body: uploadData,
-      });
-
-      setData({ message: JSON.stringify(receipt), success: true });
-    } catch (error) {
-      console.error("Error sending upload request:", error);
-      setData({ message: "Error sending upload request", success: false });
+    setActiveStep(4)
+    try {
+      const upload = new FormData()
+      upload.append('merchant', receipt.merchant)
+      upload.append('transactionDate', receipt.transactionDate)
+      upload.append('file', file)
+      await fetch(`${SERVER_URL}/upload-file`, { method: 'POST', body: upload })
+      updateLog(4, 'File saved')
+    } catch (err: any) {
+      updateLog(4, `Error: ${err.message}`)
+      return
     }
   }
 
   return (
-    <>
-      <div>
-        <a href="https://github.com/stevedylandev/bhvr" target="_blank">
-          <img src={beaver} className="logo" alt="beaver logo" />
-        </a>
-      </div>
-      <h1>bhvr</h1>
-      <h2>Bun + Hono + Vite + React</h2>
-      <p>A typesafe fullstack monorepo</p>
-      <div className="card">
-        <div className='button-container'>
-          <button onClick={sendHelloRequest}>
-            Call /hello
-          </button>
-          <button onClick={sendUploadRequest}>
-            Call /upload
-          </button>
-          <a className='docs-link' target='_blank' href="https://bhvr.dev">Docs</a>
-        </div>
-        {data && (
-          <pre className='response'>
-            <code>
-            Message: {data.message} <br />
-            Success: {data.success.toString()}
-            </code>
-          </pre>
-        )}
-      </div>
-    </>
+    <ThemeProvider theme={theme}>
+      <Container maxWidth="sm" sx={{ textAlign: 'center', mt: 4 }}>
+        <Autocomplete
+          multiple
+          freeSolo
+          options={categories}
+          value={categories}
+          onChange={(_, value) => setCategories(value)}
+          renderTags={(value: readonly string[], getTagProps) =>
+            value.map((option, index) => (
+              <Chip label={option} {...getTagProps({ index })} />
+            ))
+          }
+          renderInput={(params) => (
+            <TextField {...params} label="Categories" placeholder="Add category" />
+          )}
+        />
+
+        <Box sx={{ mt: 2 }}>
+          <Button variant="contained" component="label">
+            Choose File
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              hidden
+              onChange={handleFileChange}
+            />
+          </Button>
+          {file && (
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              {file.name}
+            </Typography>
+          )}
+        </Box>
+
+        <Box sx={{ mt: 2 }}>
+          <Button variant="contained" onClick={processReceipt}>
+            Process Receipt
+          </Button>
+        </Box>
+
+        <Box sx={{ mt: 4 }}>
+          <Stepper activeStep={activeStep} orientation="vertical">
+            {steps.map((label, index) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+                <StepContent>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                    {logs[index]}
+                  </Typography>
+                </StepContent>
+              </Step>
+            ))}
+          </Stepper>
+        </Box>
+      </Container>
+    </ThemeProvider>
   )
 }
 
