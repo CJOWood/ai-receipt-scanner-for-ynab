@@ -27,8 +27,8 @@ const steps = [
 ]
 
 function App() {
-  const [categories, setCategories] = useState<string[]>(() => {
-    const saved = localStorage.getItem('categories')
+  const [accounts, setAccounts] = useState<string[]>(() => {
+    const saved = localStorage.getItem('accounts')
     return saved ? JSON.parse(saved) : []
   })
   const [file, setFile] = useState<File | null>(null)
@@ -36,8 +36,8 @@ function App() {
   const [logs, setLogs] = useState<string[]>(Array(steps.length).fill(''))
 
   useEffect(() => {
-    localStorage.setItem('categories', JSON.stringify(categories))
-  }, [categories])
+    localStorage.setItem('accounts', JSON.stringify(accounts))
+  }, [accounts])
 
   const updateLog = (index: number, message: string) => {
     setLogs((prev) => {
@@ -77,7 +77,7 @@ function App() {
       form.append('file', file)
       form.append(
         'categories',
-        JSON.stringify(categories.length ? categories : ynabInfo.categories)
+        JSON.stringify(ynabInfo.categories)
       )
       form.append('payees', JSON.stringify(ynabInfo.payees))
       const parseRes = await fetch(`${SERVER_URL}/parse-receipt`, {
@@ -99,7 +99,7 @@ function App() {
       await fetch(`${SERVER_URL}/create-transaction`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account: 'test-account', receipt }),
+        body: JSON.stringify({ account: accounts[0], receipt }),
       })
       updateLog(3, 'Transaction created')
     } catch (err: any) {
@@ -127,16 +127,16 @@ function App() {
         <Autocomplete
           multiple
           freeSolo
-          options={categories}
-          value={categories}
-          onChange={(_, value) => setCategories(value)}
+          options={accounts}
+          value={accounts}
+          onChange={(_, value) => setAccounts(value)}
           renderTags={(value: readonly string[], getTagProps) =>
             value.map((option, index) => (
               <Chip label={option} {...getTagProps({ index })} />
             ))
           }
           renderInput={(params) => (
-            <TextField {...params} label="Categories" placeholder="Add category" />
+            <TextField {...params} label="Accounts" placeholder="Add account" />
           )}
         />
 
