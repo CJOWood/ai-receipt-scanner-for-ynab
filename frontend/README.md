@@ -1,6 +1,15 @@
-# React + TypeScript + Vite
+# YNAB Slip Uploader Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is a small React application built with Vite. It provides a minimal UI for uploading receipt images to the Hono based API.
+
+## Development
+
+Install the dependencies and start the development server:
+
+```bash
+bun install
+bun run dev
+```
 
 Currently, two official plugins are available:
 
