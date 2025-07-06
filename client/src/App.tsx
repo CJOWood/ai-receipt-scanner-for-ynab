@@ -3,18 +3,55 @@ import beaver from './assets/beaver.svg'
 import type { ApiResponse } from 'shared'
 import './App.css'
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000"
+const SERVER_URL = import.meta.env.APP_SERVER_URL || "http://localhost:3000"
 
 function App() {
   const [data, setData] = useState<ApiResponse | undefined>()
 
-  async function sendRequest() {
+  async function sendHelloRequest() {
     try {
       const req = await fetch(`${SERVER_URL}/hello`)
       const res: ApiResponse = await req.json()
       setData(res)
     } catch (error) {
       console.log(error)
+    }
+  }
+
+  async function sendUploadRequest() {
+    try {
+      const formData = new FormData();
+      formData.append("account", "test-account");
+      formData.append("file", new File(
+        [Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg", 
+          "base64"
+        )], 
+        "receipt.pdf",
+        {
+          type: "image/png",
+          lastModified: Date.now()
+        }
+      )); // Replace with actual file content
+
+      try {
+        const res = await fetch(`${SERVER_URL}/upload`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.body) {
+          throw new Error("No response body");
+        }
+        const data = await res.json();
+        setData({ message: data, success: true });
+      } catch (error) {
+        console.error("Error uploading file:", error);
+        setData({ message: "Error uploading file", success: false });
+      }
+    } catch (error) {
+      console.error("Error sending upload request:", error);
+      setData({ message: "Error sending upload request", success: false });
     }
   }
 
@@ -30,8 +67,11 @@ function App() {
       <p>A typesafe fullstack monorepo</p>
       <div className="card">
         <div className='button-container'>
-          <button onClick={sendRequest}>
-            Call API
+          <button onClick={sendHelloRequest}>
+            Call /hello
+          </button>
+          <button onClick={sendUploadRequest}>
+            Call /upload
           </button>
           <a className='docs-link' target='_blank' href="https://bhvr.dev">Docs</a>
         </div>

@@ -1,14 +1,18 @@
 import { Hono } from "hono";
-import { basicAuth } from "hono/basic-auth";
+import { cors } from "hono/cors";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import env from "./utils/env-vars";
 import { logger } from "hono/logger";
 import { processAndUploadReceipt } from "./services/receipt";
+import type { ApiResponse } from "shared/dist";
 
 const app = new Hono();
-
-app.use(logger());
+const log = (msg: string, ...rest: string[]) => {
+  console.log(msg, ...rest)
+}
+app.use(logger(log))
+app.use(cors())
 
 app.post(
   "/upload",
@@ -34,14 +38,14 @@ app.post(
     })
   ),
   async (c) => {
-    const { account, file } = c.req.valid("form");
-
-    try {
+     try {
+      const { account, file } = c.req.valid("form");
+      log("Received upload request for account:", account);
       const receipt = await processAndUploadReceipt(account, file);
 
       return c.json(receipt, 200);
     } catch (err: any) {
-      console.error("Error processing receipt:", err)
+      log("Error processing receipt:", err)
       return c.json(
         { error: err.message || "An unknown error occurred." },
         500
@@ -53,6 +57,16 @@ app.post(
 app.get("/healthz", async (c) => {
   return c.text("OK", 200);
 });
+
+app.get('/hello', async (c) => {
+
+  const data: ApiResponse = {
+    message: "Hello BHVR!",
+    success: true
+  }
+
+  return c.json(data, { status: 200 })
+})
 
 export default {
   port: env.APP_PORT,

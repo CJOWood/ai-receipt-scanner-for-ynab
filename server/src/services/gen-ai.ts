@@ -85,7 +85,7 @@ export const parseReceipt = async (
 
   const result = await chatSession.sendMessage([
     {
-      text: `Process this slip. Make sure you ONLY use a category in the list of available enum values. ${
+      text: `Process this slip. Make sure you ONLY use a category in the list of available category enum values. ${
         existingPayees
           ? `\n\nConsider the following existing merchants and pick the most appropriate one. If none are appropriate, use the merchant name from the receipt:\n${existingPayees
               .map((p) => `- ${p}`)
