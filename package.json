@@ -1,18 +1,21 @@
 {
-  "name": "slips-generator",
-  "module": "index.ts",
-  "type": "module",
+  "name": "ynab-slip-uploader",
+  "version": "0.0.1",
+  "workspaces": ["./server", "./shared"],
+  "scripts": {
+    "dev:server": "cd server && bun run dev",
+    "dev:shared": "cd shared && bun run dev",
+    "dev": "concurrently \"bun run dev:shared\" \"bun run dev:server\"",
+    "build:server": "cd server && bun run build",
+    "build:shared": "cd shared && bun run build",
+    "build": "bun run build:shared && bun run build:server",
+    "postinstall": "bun run build:shared && bun run build:server"
+  },
   "devDependencies": {
-    "@types/bun": "latest"
+    "bun-types": "latest",
+    "concurrently": "^9.1.2"
   },
   "peerDependencies": {
-    "typescript": "^5.0.0"
-  },
-  "dependencies": {
-    "@google/generative-ai": "^0.21.0",
-    "@hono/zod-validator": "^0.4.2",
-    "hono": "^4.6.16",
-    "ynab": "^2.6.0",
-    "zod": "^3.24.1"
+    "typescript": "^5.8.3"
   }
 }

@@ -3,7 +3,7 @@ WORKDIR /usr/src/app
 
 FROM base AS install
 RUN mkdir -p /temp/prod
-COPY package.json bun.lockb /temp/prod/
+COPY package.json bun.lockb server/package.json shared/package.json /temp/prod/
 
 WORKDIR /temp/prod
 RUN bun install --frozen-lockfile --production
@@ -16,4 +16,4 @@ COPY . .
 ENV NODE_ENV=production
 
 USER bun
-ENTRYPOINT [ "bun", "run", "index.ts" ]
+ENTRYPOINT [ "bun", "run", "server/src/index.ts" ]

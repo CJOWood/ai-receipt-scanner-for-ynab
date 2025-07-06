@@ -11,6 +11,17 @@ A service that processes receipt images using Google's Gemini AI and automatical
 - Supports split transactions for line items
 - Basic auth protection for API endpoints
 
+## Repository Structure
+
+This project now follows the [bhvr](https://github.com/stevedylandev/bhvr) monorepo layout.
+
+```
+.
+├── server/        # Hono backend
+├── shared/        # Shared TypeScript definitions
+└── package.json   # Root workspace configuration
+```
+
 ## Quick Start
 
 You can quickly get up and running by running the container in Docker.
