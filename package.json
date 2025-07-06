@@ -25,5 +25,10 @@
     "tslib": "2",
     "ynab": "^2.6.0",
     "zod": "^3.24.1"
+  },
+  "scripts": {
+    "dev": "bun --hot run index.ts",
+    "build": "bun build src/frontend/index.tsx --outfile public/app.js --minify",
+    "start": "bun run index.ts"
   }
 }

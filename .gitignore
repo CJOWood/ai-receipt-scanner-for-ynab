@@ -178,3 +178,4 @@ dist
 # tmp
 tmp
 *.lockb
+public/app.js

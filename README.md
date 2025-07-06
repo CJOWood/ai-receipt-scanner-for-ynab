@@ -130,10 +130,17 @@ bun install
 
 Copy the `.env.example` file and replace the placeholders with your own files.
 
-Then, run the application using the following command:
+Then, build the front-end and start the server:
 
 ```shell
-bun run index.ts
+bun run build
+bun start
+```
+
+During development you can run the backend with hot reloading using:
+
+```shell
+bun run dev
 ```
 
 Make your changes, push them and create a pull request.
