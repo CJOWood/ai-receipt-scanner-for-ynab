@@ -4,7 +4,7 @@ import {
   type GenerationConfig,
 } from "@google/generative-ai";
 import env from "../utils/env-vars";
-import type { Receipt } from "./shared-types";
+import type { Receipt } from "shared";
 
 const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({

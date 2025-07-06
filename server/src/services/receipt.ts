@@ -1,4 +1,4 @@
-import type { Receipt } from "./shared-types";
+import type { Receipt } from "shared";
 import {
   createTransaction,
   getAllEnvelopes as getAllCategories,
