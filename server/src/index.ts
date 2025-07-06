@@ -8,10 +8,7 @@ import { processAndUploadReceipt } from "./services/receipt";
 import type { ApiResponse } from "shared/dist";
 
 const app = new Hono();
-const log = (msg: string, ...rest: string[]) => {
-  console.log(msg, ...rest)
-}
-app.use(logger(log))
+app.use(logger())
 app.use(cors())
 
 app.post(
@@ -38,14 +35,14 @@ app.post(
     })
   ),
   async (c) => {
-     try {
+    try {
       const { account, file } = c.req.valid("form");
-      log("Received upload request for account:", account);
+      
       const receipt = await processAndUploadReceipt(account, file);
 
       return c.json(receipt, 200);
     } catch (err: any) {
-      log("Error processing receipt:", err)
+      console.error("Error processing receipt:", err)
       return c.json(
         { error: err.message || "An unknown error occurred." },
         500
@@ -59,7 +56,6 @@ app.get("/healthz", async (c) => {
 });
 
 app.get('/hello', async (c) => {
-
   const data: ApiResponse = {
     message: "Hello BHVR!",
     success: true
