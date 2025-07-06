@@ -26,8 +26,8 @@ const steps = [
 ]
 
 function App() {
-  const [accounts, setAccounts] = useState<string[]>(() => {
-    const saved = localStorage.getItem('accounts')
+  const [categories, setCategories] = useState<string[]>(() => {
+    const saved = localStorage.getItem('categories')
     return saved ? JSON.parse(saved) : []
   })
   const [accounts, setAccounts] = useState<string[]>([])
@@ -96,7 +96,7 @@ function App() {
       form.append('file', file)
       form.append(
         'categories',
-        JSON.stringify(ynabInfo.categories)
+        JSON.stringify(categories.length ? categories : ynabInfo.categories)
       )
       form.append('payees', JSON.stringify(ynabInfo.payees))
       const parseRes = await fetch(`${SERVER_URL}/parse-receipt`, {
