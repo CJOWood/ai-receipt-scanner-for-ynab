@@ -12,10 +12,6 @@ app.use(logger());
 
 app.post(
   "/upload",
-  basicAuth({
-    username: env.APP_API_KEY,
-    password: env.APP_API_SECRET,
-  }),
   zValidator(
     "form",
     z.object({
