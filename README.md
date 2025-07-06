@@ -130,7 +130,7 @@ bun install
 
 Copy the `.env.example` file and replace the placeholders with your own files.
 
-Then, build the front-end and start the server:
+The front-end is a small React app using Material UI. Build the front-end and start the server with:
 
 ```shell
 bun run build

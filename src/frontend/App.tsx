@@ -1,4 +1,12 @@
 import React, { useState } from "react";
+import {
+  Box,
+  Button,
+  Container,
+  TextField,
+  Typography,
+  Alert,
+} from "@mui/material";
 
 const App: React.FC = () => {
   const [account, setAccount] = useState("");
@@ -27,29 +35,39 @@ const App: React.FC = () => {
   };
 
   return (
-    <main style={{ maxWidth: 600, margin: "40px auto", fontFamily: "sans-serif" }}>
-      <h1>YNAB Slip Uploader</h1>
-      <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <input
-          type="text"
-          placeholder="Account name"
+    <Container maxWidth="sm" sx={{ mt: 5 }}>
+      <Typography variant="h4" component="h1" gutterBottom>
+        YNAB Slip Uploader
+      </Typography>
+      <Box component="form" onSubmit={onSubmit} sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <TextField
+          label="Account name"
           value={account}
           onChange={(e) => setAccount(e.target.value)}
           required
         />
-        <input
-          type="file"
-          accept="image/*,application/pdf"
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
-          required
-        />
-        <button type="submit" disabled={!file || !account}>Upload</button>
-      </form>
-      {error && <p style={{ color: "red" }}>{error}</p>}
+        <Button variant="outlined" component="label">
+          Select File
+          <input
+            type="file"
+            accept="image/*,application/pdf"
+            hidden
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+          />
+        </Button>
+        <Button type="submit" variant="contained" disabled={!file || !account}>
+          Upload
+        </Button>
+      </Box>
+      {error && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {error}
+        </Alert>
+      )}
       {result && (
         <pre style={{ marginTop: 20 }}>{JSON.stringify(result, null, 2)}</pre>
       )}
-    </main>
+    </Container>
   );
 };
 
