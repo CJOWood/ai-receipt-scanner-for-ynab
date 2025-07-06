@@ -79,6 +79,7 @@
           return stored ? JSON.parse(stored) : [];
         });
         const [fileName, setFileName] = useState("");
+        const [fileType, setFileType] = useState("");
         const [loading, setLoading] = useState(false);
         const defaultSteps = [
           { label: "Uploading image", done: false, logs: [], error: null },
@@ -160,6 +161,7 @@
           setRotation(0);
           const f = e.target.files?.[0];
           setFileName(f?.name || "");
+          setFileType(f?.type || "");
           if (f && f.type.startsWith("image/")) {
             const url = URL.createObjectURL(f);
             setImgSrc(url);
@@ -199,7 +201,7 @@
             -imgRef.current.naturalHeight / 2,
           );
           const blob = await new Promise((res) =>
-            canvas.toBlob(res, "image/jpeg"),
+            canvas.toBlob(res, fileType || "image/jpeg", fileType === "image/jpeg" ? 1 : undefined),
           );
           if (blob) {
             const url = URL.createObjectURL(blob);
@@ -250,11 +252,11 @@
             completedCrop.height,
           );
           const blob = await new Promise((res) =>
-            canvas.toBlob(res, "image/jpeg"),
+            canvas.toBlob(res, fileType || "image/jpeg", fileType === "image/jpeg" ? 1 : undefined),
           );
             if (blob) {
               const url = URL.createObjectURL(blob);
-              setCroppedFile(new File([blob], fileName, { type: "image/jpeg" }));
+              setCroppedFile(new File([blob], fileName, { type: fileType || "image/jpeg" }));
               setImgSrc(url);
             }
             setCropOpen(false);
