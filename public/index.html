@@ -152,6 +152,39 @@
           });
         };
 
+        const handleFileChange = (e) => {
+          fileRegister.onChange(e);
+          setCroppedFile(null);
+          setCrop(null);
+          setCompletedCrop(null);
+          setRotation(0);
+          const f = e.target.files?.[0];
+          setFileName(f?.name || "");
+          if (f && f.type.startsWith("image/")) {
+            const url = URL.createObjectURL(f);
+            setImgSrc(url);
+            const img = new Image();
+            img.onload = async () => {
+              const res = await window.smartcrop.crop(img, {
+                width: img.width,
+                height: img.height,
+              });
+              const c = res.topCrop;
+              setCrop({
+                unit: "px",
+                x: c.x,
+                y: c.y,
+                width: c.width,
+                height: c.height,
+              });
+              setCropOpen(true);
+            };
+            img.src = url;
+          } else {
+            setImgSrc(null);
+          }
+        };
+
         const rotateImage = async () => {
           if (!imgRef.current) return;
           const canvas = document.createElement("canvas");
@@ -219,11 +252,13 @@
           const blob = await new Promise((res) =>
             canvas.toBlob(res, "image/jpeg"),
           );
-          if (blob) {
-            setCroppedFile(new File([blob], fileName, { type: "image/jpeg" }));
-          }
-          setCropOpen(false);
-        };
+            if (blob) {
+              const url = URL.createObjectURL(blob);
+              setCroppedFile(new File([blob], fileName, { type: "image/jpeg" }));
+              setImgSrc(url);
+            }
+            setCropOpen(false);
+          };
 
         const renderReceiptTable = (receipt, key) =>
           React.createElement(
@@ -663,7 +698,7 @@
                   {
                     color: "primary",
                     component: "label",
-                    htmlFor: "file-input",
+                    htmlFor: "camera-input",
                     "aria-label": "take picture",
                     disabled: loading,
                   },
@@ -679,47 +714,31 @@
                     { variant: "body2", sx: { ml: 2, display: "inline" } },
                     fileName,
                   ),
+                imgSrc &&
+                  React.createElement("img", {
+                    src: imgSrc,
+                    style: { maxWidth: 80, maxHeight: 80, marginLeft: 8 },
+                  }),
               ),
               React.createElement("input", {
                 id: "file-input",
                 type: "file",
                 hidden: true,
                 accept: ".jpg,.jpeg,.png,.webp,.pdf",
-                capture: "environment",
                 disabled: loading,
-                onChange: (e) => {
-                  fileRegister.onChange(e);
-                  setCroppedFile(null);
-                  setCrop(null);
-                  setCompletedCrop(null);
-                  setRotation(0);
-                  const f = e.target.files?.[0];
-                  setFileName(f?.name || "");
-                  if (f && f.type.startsWith("image/")) {
-                    const url = URL.createObjectURL(f);
-                    setImgSrc(url);
-                    const img = new Image();
-                    img.onload = async () => {
-                      const res = await window.smartcrop.crop(img, {
-                        width: img.width,
-                        height: img.height,
-                      });
-                      const c = res.topCrop;
-                      setCrop({
-                        unit: "px",
-                        x: c.x,
-                        y: c.y,
-                        width: c.width,
-                        height: c.height,
-                      });
-                      setCropOpen(true);
-                    };
-                    img.src = url;
-                  }
-                },
+                onChange: handleFileChange,
                 onBlur: fileRegister.onBlur,
                 name: fileRegister.name,
                 ref: fileRegister.ref,
+              }),
+              React.createElement("input", {
+                id: "camera-input",
+                type: "file",
+                hidden: true,
+                accept: "image/*",
+                capture: "environment",
+                disabled: loading,
+                onChange: handleFileChange,
               }),
               React.createElement(
                 Dialog,
