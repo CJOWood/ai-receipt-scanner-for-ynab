@@ -20,19 +20,9 @@ function App() {
 
   async function sendUploadRequest() {
     try {
-      const file = new File(
-        [
-          Buffer.from(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg",
-            "base64"
-          ),
-        ],
-        "receipt.pdf",
-        {
-          type: "image/png",
-          lastModified: Date.now(),
-        }
-      );
+      const res = await fetch("/src/assets/sample.jpg");
+      const blob = await res.blob();
+      const file = new File([blob], "sample.jpg", { type: blob.type, lastModified: Date.now() });
 
       const infoRes = await fetch(`${SERVER_URL}/ynab-info`);
       const ynabInfo = await infoRes.json();

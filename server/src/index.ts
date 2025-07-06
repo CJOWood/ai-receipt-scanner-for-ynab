@@ -18,7 +18,7 @@ app.get("/ynab-info", async (c) => {
     const info = await getYnabInfo();
     return c.json(info, 200);
   } catch (err: any) {
-    log("Error getting YNAB info:", err);
+    console.error("Error getting YNAB info:", err);
     return c.json({ error: err.message }, 500);
   }
 });
@@ -56,7 +56,7 @@ app.post(
       );
       return c.json(receipt, 200);
     } catch (err: any) {
-      log("Error parsing receipt:", err);
+      console.error("Error parsing receipt:", err);
       return c.json({ error: err.message }, 500);
     }
   }
@@ -85,7 +85,7 @@ app.post(
       );
       return c.json({ success: true }, 200);
     } catch (err: any) {
-      log("Error creating transaction:", err);
+      console.error("Error creating transaction:", err);
       return c.json({ error: err.message }, 500);
     }
   }
@@ -116,7 +116,7 @@ app.post(
       await uploadReceiptFile(merchant, transactionDate, file);
       return c.json({ success: true }, 200);
     } catch (err: any) {
-      log("Error uploading file:", err);
+      console.error("Error uploading file:", err);
       return c.json({ error: err.message }, 500);
     }
   }
