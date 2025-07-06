@@ -4,12 +4,123 @@ import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import env from "./utils/env-vars";
 import { logger } from "hono/logger";
-import { processAndUploadReceipt } from "./services/receipt";
-import type { ApiResponse } from "shared/dist";
+import { processAndUploadReceipt, uploadReceiptFile } from "./services/receipt";
+import { getYnabInfo, createTransaction } from "./services/budget";
+import { parseReceipt } from "./services/gen-ai";
+import type { Receipt, ApiResponse } from "shared";
 
 const app = new Hono();
 app.use(logger())
 app.use(cors())
+
+app.get("/ynab-info", async (c) => {
+  try {
+    const info = await getYnabInfo();
+    return c.json(info, 200);
+  } catch (err: any) {
+    log("Error getting YNAB info:", err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.post(
+  "/parse-receipt",
+  zValidator(
+    "form",
+    z.object({
+      file: z
+        .instanceof(File)
+        .refine((f) => f.size <= env.MAX_FILE_SIZE, `Max file size is ${env.MAX_FILE_SIZE / 1024 / 1024}MB`)
+        .refine((f) => [
+          "image/jpeg",
+          "image/jpg",
+          "image/png",
+          "image/webp",
+          "application/pdf",
+        ].includes(f.type)),
+      categories: z.string().nonempty(),
+      payees: z.string().optional(),
+    })
+  ),
+  async (c) => {
+    try {
+      const { file, categories, payees } = c.req.valid("form");
+      const fileBuffer = Buffer.from(await file.arrayBuffer());
+      const categoriesArr = JSON.parse(categories) as string[];
+      const payeesArr = payees ? (JSON.parse(payees) as string[]) : undefined;
+      const receipt = await parseReceipt(
+        fileBuffer,
+        file.type,
+        categoriesArr,
+        payeesArr || null
+      );
+      return c.json(receipt, 200);
+    } catch (err: any) {
+      log("Error parsing receipt:", err);
+      return c.json({ error: err.message }, 500);
+    }
+  }
+);
+
+app.post(
+  "/create-transaction",
+  zValidator(
+    "json",
+    z.object({
+      account: z.string().nonempty(),
+      receipt: z.any(),
+    })
+  ),
+  async (c) => {
+    try {
+      const { account, receipt } = c.req.valid("json") as { account: string; receipt: Receipt };
+      await createTransaction(
+        account,
+        receipt.merchant,
+        receipt.category,
+        receipt.transactionDate,
+        receipt.memo,
+        receipt.totalAmount,
+        receipt.lineItems?.map((li) => ({ category: li.category, amount: li.lineItemTotalAmount }))
+      );
+      return c.json({ success: true }, 200);
+    } catch (err: any) {
+      log("Error creating transaction:", err);
+      return c.json({ error: err.message }, 500);
+    }
+  }
+);
+
+app.post(
+  "/upload-file",
+  zValidator(
+    "form",
+    z.object({
+      merchant: z.string().nonempty(),
+      transactionDate: z.string().nonempty(),
+      file: z
+        .instanceof(File)
+        .refine((f) => f.size <= env.MAX_FILE_SIZE, `Max file size is ${env.MAX_FILE_SIZE / 1024 / 1024}MB`)
+        .refine((f) => [
+          "image/jpeg",
+          "image/jpg",
+          "image/png",
+          "image/webp",
+          "application/pdf",
+        ].includes(f.type)),
+    })
+  ),
+  async (c) => {
+    try {
+      const { merchant, transactionDate, file } = c.req.valid("form");
+      await uploadReceiptFile(merchant, transactionDate, file);
+      return c.json({ success: true }, 200);
+    } catch (err: any) {
+      log("Error uploading file:", err);
+      return c.json({ error: err.message }, 500);
+    }
+  }
+);
 
 app.post(
   "/upload",

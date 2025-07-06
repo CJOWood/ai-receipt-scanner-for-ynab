@@ -45,6 +45,13 @@ export const getAllPayees = async () => {
   return payees;
 };
 
+export const getYnabInfo = async () => {
+  const categories = await getAllEnvelopes();
+  const payees = await getAllPayees();
+
+  return { categories, payees };
+};
+
 export const createTransaction = async (
   accountName: string,
   merchant: string,

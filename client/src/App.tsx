@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import beaver from './assets/beaver.svg'
-import type { ApiResponse } from 'shared'
+import type { ApiResponse, Receipt } from 'shared'
 import './App.css'
 
 const SERVER_URL = import.meta.env.APP_SERVER_URL || "http://localhost:3000"
@@ -20,35 +20,49 @@ function App() {
 
   async function sendUploadRequest() {
     try {
-      const formData = new FormData();
-      formData.append("account", "test-account");
-      formData.append("file", new File(
-        [Buffer.from(
-          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg", 
-          "base64"
-        )], 
+      const file = new File(
+        [
+          Buffer.from(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg",
+            "base64"
+          ),
+        ],
         "receipt.pdf",
         {
           type: "image/png",
-          lastModified: Date.now()
+          lastModified: Date.now(),
         }
-      )); // Replace with actual file content
+      );
 
-      try {
-        const res = await fetch(`${SERVER_URL}/upload`, {
-          method: "POST",
-          body: formData,
-        });
+      const infoRes = await fetch(`${SERVER_URL}/ynab-info`);
+      const ynabInfo = await infoRes.json();
 
-        if (!res.body) {
-          throw new Error("No response body");
-        }
-        const data = await res.json();
-        setData({ message: data, success: true });
-      } catch (error) {
-        console.error("Error uploading file:", error);
-        setData({ message: "Error uploading file", success: false });
-      }
+      const parseData = new FormData();
+      parseData.append("file", file);
+      parseData.append("categories", JSON.stringify(ynabInfo.categories));
+      parseData.append("payees", JSON.stringify(ynabInfo.payees));
+      const parseRes = await fetch(`${SERVER_URL}/parse-receipt`, {
+        method: "POST",
+        body: parseData,
+      });
+      const receipt: Receipt = await parseRes.json();
+
+      await fetch(`${SERVER_URL}/create-transaction`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ account: "test-account", receipt }),
+      });
+
+      const uploadData = new FormData();
+      uploadData.append("merchant", receipt.merchant);
+      uploadData.append("transactionDate", receipt.transactionDate);
+      uploadData.append("file", file);
+      await fetch(`${SERVER_URL}/upload-file`, {
+        method: "POST",
+        body: uploadData,
+      });
+
+      setData({ message: JSON.stringify(receipt), success: true });
     } catch (error) {
       console.error("Error sending upload request:", error);
       setData({ message: "Error sending upload request", success: false });
