@@ -4,7 +4,6 @@ import {
   Autocomplete,
   Box,
   Button,
-  Chip,
   Container,
   Step,
   StepContent,
@@ -31,13 +30,28 @@ function App() {
     const saved = localStorage.getItem('accounts')
     return saved ? JSON.parse(saved) : []
   })
+  const [accounts, setAccounts] = useState<string[]>([])
+  const [account, setAccount] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [activeStep, setActiveStep] = useState<number>(-1)
   const [logs, setLogs] = useState<string[]>(Array(steps.length).fill(''))
 
   useEffect(() => {
-    localStorage.setItem('accounts', JSON.stringify(accounts))
-  }, [accounts])
+    const fetchInfo = async () => {
+      try {
+        const res = await fetch(`${SERVER_URL}/ynab-info`)
+        const info = await res.json()
+        setAccounts(info.accounts || [])
+      } catch (err) {
+        console.error('Error fetching YNAB info', err)
+      }
+    }
+    fetchInfo()
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem('categories', JSON.stringify(categories))
+  }, [categories])
 
   const updateLog = (index: number, message: string) => {
     setLogs((prev) => {
@@ -56,6 +70,11 @@ function App() {
   const processReceipt = async () => {
     if (!file) {
       alert('Please select a receipt image')
+      return
+    }
+
+    if (!account) {
+      alert('Please select an account')
       return
     }
 
@@ -99,7 +118,7 @@ function App() {
       await fetch(`${SERVER_URL}/create-transaction`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account: accounts[0], receipt }),
+        body: JSON.stringify({ account, receipt }),
       })
       updateLog(3, 'Transaction created')
     } catch (err: any) {
@@ -125,18 +144,23 @@ function App() {
     <ThemeProvider theme={theme}>
       <Container maxWidth="sm" sx={{ textAlign: 'center', mt: 4 }}>
         <Autocomplete
-          multiple
-          freeSolo
           options={accounts}
-          value={accounts}
-          onChange={(_, value) => setAccounts(value)}
-          renderTags={(value: readonly string[], getTagProps) =>
-            value.map((option, index) => (
-              <Chip label={option} {...getTagProps({ index })} />
-            ))
+          value={account}
+          onChange={(_, value) => setAccount(value)}
+          renderInput={(params) => (
+            <TextField {...params} label="Account" placeholder="Select account" />
+          )}
+          sx={{ mb: 2 }}
+        />
+        <Autocomplete
+          freeSolo
+          options={categories}
+          value={categories[0] || null}
+          onChange={(_, value) =>
+            setCategories(value ? [value] : [])
           }
           renderInput={(params) => (
-            <TextField {...params} label="Accounts" placeholder="Add account" />
+            <TextField {...params} label="Category" placeholder="Add category" />
           )}
         />
 

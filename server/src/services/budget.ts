@@ -45,11 +45,26 @@ export const getAllPayees = async () => {
   return payees;
 };
 
+export const getAllAccounts = async () => {
+  const budget = await api.budgets.getBudgetById(budgetId);
+
+  const accounts = budget.data.budget.accounts
+    ?.filter((a) => !a.closed && !a.deleted)
+    .map((a) => a.name);
+
+  if (!accounts) {
+    throw new Error("No accounts found");
+  }
+
+  return accounts;
+};
+
 export const getYnabInfo = async () => {
   const categories = await getAllEnvelopes();
   const payees = await getAllPayees();
+  const accounts = await getAllAccounts();
 
-  return { categories, payees };
+  return { categories, payees, accounts };
 };
 
 export const createTransaction = async (
