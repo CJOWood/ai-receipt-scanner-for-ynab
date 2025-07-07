@@ -1,0 +1,20 @@
+{
+  "category": "Household",
+  "memo": "Purchased a variety of household goods including a soft toy, vases, plants, storage boxes, and a desk.",
+  "merchant": "IKEA",
+  "totalAmount": 153.71,
+  "transactionDate": "2025-07-07",
+  "lineItems": [
+    {"category": "Household", "lineItemTotalAmount": 39.99, "productName": "BLAHAJ NNN soft"},
+    {"category": "Household", "lineItemTotalAmount": 2.99, "productName": "PADRAG vase 17"},
+    {"category": "Household", "lineItemTotalAmount": 34.99, "productName": "AKERBAR"},
+    {"category": "Household", "lineItemTotalAmount": 1.49, "productName": "VILJESTARK vase"},
+    {"category": "Household", "lineItemTotalAmount": 2.99, "productName": "BERAKNA N vase"},
+    {"category": "Household", "lineItemTotalAmount": 3.99, "productName": "FEJKA art pott"},
+    {"category": "Household", "lineItemTotalAmount": 11.99, "productName": "VATTENKRASSE"},
+    {"category": "Household", "lineItemTotalAmount": 4.99, "productName": "SESAMFRON plant"},
+    {"category": "Household", "lineItemTotalAmount": 24.99, "productName": "GO box/comprt"},
+    {"category": "Household", "lineItemTotalAmount": 17.98, "productName": "TJENA N desk", "quantity": 2}
+  ],
+  "totalTaxes": 7.32
+}

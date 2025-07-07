@@ -37,6 +37,11 @@ const envScheme = z.object({
   S3_PATH_PREFIX: z.string().optional(),
   S3_ENDPOINT: z.string().optional(),
   NODE_ENV: z.string().optional().default("development"),
+  USE_MOCK_AI: z.preprocess(
+    (val) => `${val}`.toLowerCase() === "true" || `${val}` === "1",
+    z.boolean()
+  ).optional().default(false),
+  MOCK_AI_RECEIPT_FILE: z.string().optional(),
 });
 
 const env = envScheme.parse(process.env);
