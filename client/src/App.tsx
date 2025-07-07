@@ -328,203 +328,236 @@ function App() {
 
   return (
     <ThemeProvider theme={theme}>
-      <Container maxWidth="sm" sx={{ textAlign: 'center', mt: 4 }}>
-        <Autocomplete
-          autoHighlight
-          options={accounts}
-          value={account}
-          onChange={(_, value) => {
-            setAccount(value)
-            setAccountTouched(true)
+      <Container maxWidth="md" sx={{ mt: 4 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            alignItems: { xs: 'stretch', md: 'flex-start' },
+            gap: 4,
           }}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label="Account"
-              placeholder="Select account"
-              required={accountTouched && !account}
-              error={accountTouched && !account}
-              onBlur={() => setAccountTouched(true)}
+        >
+          {/* Form Section */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Autocomplete
+              autoHighlight
+              options={accounts}
+              value={account}
+              onChange={(_, value) => {
+                setAccount(value)
+                setAccountTouched(true)
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Account"
+                  placeholder="Select account"
+                  required={accountTouched && !account}
+                  error={accountTouched && !account}
+                  onBlur={() => setAccountTouched(true)}
+                />
+              )}
+              sx={{ mb: 2 }}
             />
-          )}
-          sx={{ mb: 2 }}
-        />
-        <Autocomplete
-          autoHighlight
-          options={allCategories}
-          value={category}
-          onChange={(_, value) => setCategory(value)}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label="Category"
-              placeholder="Select category (optional)"
+            <Autocomplete
+              autoHighlight
+              options={allCategories}
+              value={category}
+              onChange={(_, value) => setCategory(value)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Category"
+                  placeholder="Select category (optional)"
+                />
+              )}
+              sx={{ mb: 2 }}
             />
-          )}
-          sx={{ mb: 2 }}
-        />
 
-        <Box sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
-          <TextField
-            label="Receipt Image"
-            value={file ? file.name : ''}
-            required={fileTouched && !file}
-            disabled
-            error={fileTouched && !file}
-            InputProps={{ readOnly: true }}
-            sx={{ mr: 2, flex: 1 }}
-          />
-          <Button
-            variant="contained"
-            component="label"
-            startIcon={<PhotoCameraIcon />}
-            onClick={() => setFileTouched(true)}
-            sx={{ minWidth: 150 }}
-          >
-            Take Photo
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              hidden
-              onChange={handleFileChange}
-            />
-          </Button>
-        </Box>
-        <Box sx={{ mt: 2, mb: 2, display: 'flex', justifyContent: 'center' }}>
+            <Box sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
+              <TextField
+                label="Receipt Image"
+                value={file ? file.name : ''}
+                required={fileTouched && !file}
+                disabled
+                error={fileTouched && !file}
+                InputProps={{ readOnly: true }}
+                sx={{ mr: 2, flex: 1 }}
+              />
+              <Button
+                variant="contained"
+                component="label"
+                startIcon={<PhotoCameraIcon />}
+                onClick={() => setFileTouched(true)}
+                sx={{ minWidth: 150 }}
+              >
+                Take Photo
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  hidden
+                  onChange={handleFileChange}
+                />
+              </Button>
+            </Box>
+            <Box sx={{ mt: 2, mb: 2, display: 'flex', justifyContent: 'center' }}>
+              <Box
+                sx={{
+                  width: '100%',
+                  height: 200,
+                  border: '1px solid #555',
+                  borderRadius: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: '#222',
+                  overflow: 'hidden',
+                  position: 'relative',
+                }}
+              >
+                {showCrop && previewUrl ? (
+                  <>
+                    <Cropper
+                      image={previewUrl}
+                      crop={crop}
+                      zoom={zoom}
+                      aspect={3 / 4}
+                      cropShape="rect"
+                      showGrid={true}
+                      onCropChange={setCrop}
+                      onZoomChange={setZoom}
+                      onCropComplete={(_, croppedAreaPixels) => {
+                        setCroppedAreaPixels(croppedAreaPixels)
+                      }}
+                    />
+                    <Box sx={{ position: 'absolute', bottom: 8, left: 8, zIndex: 10 }}>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={handleCropConfirm}
+                        sx={{ mr: 1 }}
+                      >
+                        Crop
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={handleCropSkip}
+                      >
+                        Skip
+                      </Button>
+                    </Box>
+                  </>
+                ) : croppedUrl ? (
+                  <img
+                    src={croppedUrl}
+                    alt="Cropped Preview"
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                      objectFit: 'contain',
+                    }}
+                  />
+                ) : previewUrl ? (
+                  <img
+                    src={previewUrl}
+                    alt="Preview"
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                      objectFit: 'contain',
+                    }}
+                  />
+                ) : (
+                  <InsertPhotoIcon sx={{ fontSize: 80, color: '#666' }} />
+                )}
+              </Box>
+            </Box>
+
+            <Box sx={{ mt: 2 }}>
+              <Button
+                variant="contained"
+                onClick={processReceipt}
+                startIcon={<ReceiptLongIcon />}
+                disabled={!account || !file || activeStep >= 0}
+              >
+                Process Receipt
+              </Button>
+              {activeStep >= steps.length && (
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    resetSteps()
+                    setFile(null)
+                    setPreviewUrl(null)
+                    setCroppedUrl(null)
+                    setShowCrop(false)
+                  }}
+                  sx={{ ml: 2 }}
+                >
+                  Process Another Receipt
+                </Button>
+              )}
+            </Box>
+          </Box>
+
+          {/* Vertical Divider for desktop only */}
           <Box
             sx={{
-              width: '100%',
-              height: 200,
-              border: '1px solid #555',
-              borderRadius: 2,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: '#222',
-              overflow: 'hidden',
-              position: 'relative',
+              display: { xs: 'none', md: 'flex' },
+              alignItems: 'stretch',
+              mx: 2,
             }}
           >
-            {showCrop && previewUrl ? (
-              <>
-                <Cropper
-                  image={previewUrl}
-                  crop={crop}
-                  zoom={zoom}
-                  aspect={3 / 4}
-                  cropShape="rect"
-                  showGrid={true}
-                  onCropChange={setCrop}
-                  onZoomChange={setZoom}
-                  onCropComplete={(_, croppedAreaPixels) => {
-                    setCroppedAreaPixels(croppedAreaPixels)
-                  }}
-                />
-                <Box sx={{ position: 'absolute', bottom: 8, left: 8, zIndex: 10 }}>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={handleCropConfirm}
-                    sx={{ mr: 1 }}
-                  >
-                    Crop
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={handleCropSkip}
-                  >
-                    Skip
-                  </Button>
-                </Box>
-              </>
-            ) : croppedUrl ? (
-              <img
-                src={croppedUrl}
-                alt="Cropped Preview"
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: '100%',
-                  objectFit: 'contain',
-                }}
-              />
-            ) : previewUrl ? (
-              <img
-                src={previewUrl}
-                alt="Preview"
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: '100%',
-                  objectFit: 'contain',
-                }}
-              />
-            ) : (
-              <InsertPhotoIcon sx={{ fontSize: 80, color: '#666' }} />
-            )}
-          </Box>
-        </Box>
-
-        <Box sx={{ mt: 2 }}>
-          <Button
-            variant="contained"
-            onClick={processReceipt}
-            startIcon={<ReceiptLongIcon />}
-            disabled={!account || !file || activeStep >= 0}
-          >
-            Process Receipt
-          </Button>
-          {activeStep >= steps.length && (
-            <Button
-              variant="outlined"
-              onClick={() => {
-                resetSteps()
-                setFile(null)
-                setPreviewUrl(null)
-                setCroppedUrl(null)
-                setShowCrop(false)
+            <Box
+              sx={{
+                width: '1px',
+                backgroundColor: 'divider',
+                height: '100%',
+                minHeight: 400,
+                alignSelf: 'stretch',
+                opacity: 0.5,
               }}
-              sx={{ ml: 2 }}
-            >
-              Process Another Receipt
-            </Button>
-          )}
-        </Box>
+            />
+          </Box>
 
-        <Box sx={{ mt: 4 }}>
-          <Stepper activeStep={activeStep} orientation="vertical">
-            {steps.map((label, index) => (
-              <Step key={label} expanded={index <= activeStep}>
-                <StepLabel
-                  error={stepErrors[index]}
-                  StepIconComponent={({ completed, error }) => {
-                    if (error) {
-                      return <ErrorIcon color="error" />
-                    } else if (completed || stepSuccess[index]) {
-                      return <CheckCircleIcon color="success" />
-                    } else {
-                      return <span>{index + 1}</span>
-                    }
-                  }}
-                >
-                  {label}
-                </StepLabel>
-                <StepContent>
-                  {(index <= activeStep || logs[index]) && (
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        whiteSpace: 'pre-line',
-                        color: stepErrors[index] ? 'error.main' : stepSuccess[index] ? 'success.main' : 'text.secondary'
-                      }}
-                    >
-                      {logs[index] || (index === activeStep ? 'In progress...' : '')}
-                    </Typography>
-                  )}
-                </StepContent>
-              </Step>
-            ))}
-          </Stepper>
+          {/* Stepper Section */}
+          <Box sx={{ flex: 1, minWidth: 0, mt: { xs: 4, md: 0 }, display: 'flex', flexDirection: 'column', justifyContent: { xs: 'flex-start', md: 'center' }, height: { md: '100%' } }}>
+            <Stepper activeStep={activeStep} orientation="vertical">
+              {steps.map((label, index) => (
+                <Step key={label} expanded={index <= activeStep}>
+                  <StepLabel
+                    error={stepErrors[index]}
+                    StepIconComponent={({ completed, error }) => {
+                      if (error) {
+                        return <ErrorIcon color="error" />
+                      } else if (completed || stepSuccess[index]) {
+                        return <CheckCircleIcon color="success" />
+                      } else {
+                        return <span>{index + 1}</span>
+                      }
+                    }}
+                  >
+                    {label}
+                  </StepLabel>
+                  <StepContent>
+                    {(index <= activeStep || logs[index]) && (
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          whiteSpace: 'pre-line',
+                          color: stepErrors[index] ? 'error.main' : stepSuccess[index] ? 'success.main' : 'text.secondary'
+                        }}
+                      >
+                        {logs[index] || (index === activeStep ? 'In progress...' : '')}
+                      </Typography>
+                    )}
+                  </StepContent>
+                </Step>
+              ))}
+            </Stepper>
+          </Box>
         </Box>
       </Container>
     </ThemeProvider>
