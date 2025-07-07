@@ -12,6 +12,8 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import UploadFileIcon from '@mui/icons-material/UploadFile'
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import type { Receipt } from 'shared'
 
 const SERVER_URL = import.meta.env.APP_SERVER_URL || 'http://localhost:3000'
@@ -140,26 +142,40 @@ function App() {
     <ThemeProvider theme={theme}>
       <Container maxWidth="sm" sx={{ textAlign: 'center', mt: 4 }}>
         <Autocomplete
+          autoHighlight
           options={accounts}
           value={account}
           onChange={(_, value) => setAccount(value)}
           renderInput={(params) => (
-            <TextField {...params} label="Account" placeholder="Select account" />
+            <TextField
+              {...params}
+              label="Account"
+              placeholder="Select account"
+              required
+              error={!account}
+              helperText={!account ? 'Selecting an account is required' : ''}
+            />
           )}
           sx={{ mb: 2 }}
         />
         <Autocomplete
+          autoHighlight
           options={allCategories}
           value={category}
           onChange={(_, value) => setCategory(value)}
           renderInput={(params) => (
-            <TextField {...params} label="Category" placeholder="Select category" />
+            <TextField
+              {...params}
+              label="Category"
+              placeholder="Select category (optional)"
+              helperText="Selecting a category is optional"
+            />
           )}
           sx={{ mb: 2 }}
         />
 
         <Box sx={{ mt: 2 }}>
-          <Button variant="contained" component="label">
+          <Button variant="contained" component="label" startIcon={<UploadFileIcon />}>
             Choose File
             <input
               type="file"
@@ -169,15 +185,25 @@ function App() {
               onChange={handleFileChange}
             />
           </Button>
-          {file && (
-            <Typography variant="body2" sx={{ mt: 1 }}>
-              {file.name}
-            </Typography>
-          )}
+          <TextField
+            label="Receipt Image"
+            value={file ? file.name : ''}
+            required
+            disabled
+            error={!file}
+            helperText={!file ? 'Receipt image is required' : ''}
+            InputProps={{ readOnly: true }}
+            sx={{ ml: 2, width: '60%' }}
+          />
         </Box>
 
         <Box sx={{ mt: 2 }}>
-          <Button variant="contained" onClick={processReceipt}>
+          <Button
+            variant="contained"
+            onClick={processReceipt}
+            startIcon={<ReceiptLongIcon />}
+            disabled={!account || !file}
+          >
             Process Receipt
           </Button>
         </Box>
