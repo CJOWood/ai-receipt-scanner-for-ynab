@@ -1,0 +1,15 @@
+{
+  "category": "Groceries",
+  "memo": "Weekly grocery and household shopping.",
+  "merchant": "Walmart",
+  "totalAmount": 82.45,
+  "transactionDate": "2025-07-06",
+  "lineItems": [
+    {"category": "Groceries", "lineItemTotalAmount": 30.00, "productName": "Produce"},
+    {"category": "Groceries", "lineItemTotalAmount": 20.00, "productName": "Meat"},
+    {"category": "Household", "lineItemTotalAmount": 15.00, "productName": "Cleaning Supplies"},
+    {"category": "Personal Hygiene", "lineItemTotalAmount": 10.00, "productName": "Shampoo"},
+    {"category": "Treats (groceries & hosting?)", "lineItemTotalAmount": 5.00, "productName": "Snacks"}
+  ],
+  "totalTaxes": 2.45
+}

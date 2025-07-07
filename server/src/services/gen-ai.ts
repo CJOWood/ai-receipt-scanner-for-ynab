@@ -6,12 +6,18 @@ import {
 import env from "../utils/env-vars";
 import type { Receipt } from "shared";
 import { logger } from "../utils/logger";
+import fs from "fs/promises";
+import path from "path";
 
 const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
   model: env.GEMINI_MODEL,
   systemInstruction: `Please process this receipt slip. Categorize each line item individually based on the line item description. You should also provide a category for the entire slip based on the highest spent category in the line items. If there are no line items, use the name of the merchant to try and determine the category. Provide a very short memo which summarises what products were purchased. Output the transaction date in the format: 'YYYY-MM-DD'. If the slip doesn't have the full date, use the current date, which is ${new Date().toDateString()}, to try determine the full date. Try to include total taxes paid.`,
 });
+
+const USE_MOCK_AI = Boolean(env.USE_MOCK_AI);
+const MOCK_AI_RECEIPT_FILE = env.MOCK_AI_RECEIPT_FILE || "parseReceipt-ikea-single-category.json";
+const MOCKS_DIR = path.resolve(__dirname, "../../dev/ai-mocks");
 
 const getGeneratingConfig = (
   availableEnvelopes: string[]
@@ -82,7 +88,18 @@ export const parseReceipt = async (
   availableEnvelopes: string[],
   existingPayees: string[] | null = null
 ): Promise<Receipt | null> => {
-  logger.debug("parseReceipt called", { mimeType, availableEnvelopes, existingPayees });
+  logger.debug("parseReceipt called", { mimeType, availableEnvelopes, existingPayees, USE_MOCK_AI });
+  if (USE_MOCK_AI) {
+    try {
+      const mockPath = path.join(MOCKS_DIR, MOCK_AI_RECEIPT_FILE);
+      logger.debug("Using mock AI response from", { mockPath });
+      const file = await fs.readFile(mockPath, "utf-8");
+      return JSON.parse(file);
+    } catch (err) {
+      logger.error("Failed to load mock AI file", err);
+      return null;
+    }
+  }
   const chatSession = model.startChat({
     generationConfig: getGeneratingConfig(availableEnvelopes),
     history: [],

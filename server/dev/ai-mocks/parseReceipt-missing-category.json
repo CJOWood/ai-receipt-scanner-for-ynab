@@ -1,0 +1,12 @@
+{
+  "category": "Gifts",
+  "memo": "Bought a gift card and a snack.",
+  "merchant": "Target",
+  "totalAmount": 30.00,
+  "transactionDate": "2025-07-04",
+  "lineItems": [
+    {"category": "Gifts", "lineItemTotalAmount": 25.00, "productName": "Gift Card"},
+    {"category": "Snacks", "lineItemTotalAmount": 5.00, "productName": "Chips"}
+  ],
+  "totalTaxes": 0.00
+}
