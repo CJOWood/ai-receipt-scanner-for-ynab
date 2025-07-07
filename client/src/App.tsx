@@ -51,6 +51,46 @@ function App() {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
   const [croppedUrl, setCroppedUrl] = useState<string | null>(null)
 
+  const generateProcessingFeedback = (receipt: Receipt): string => {
+    let feedback = '✓ Data validated and ready for YNAB import'
+    
+    // Add tax processing info
+    if (receipt.totalTaxes && receipt.totalTaxes > 0) {
+      feedback += `\n• Tax amount of $${receipt.totalTaxes.toFixed(2)} will be distributed proportionally`
+    }
+    
+    // Add split transaction info
+    if (receipt.lineItems && receipt.lineItems.length > 1) {
+      const lineItemTotal = receipt.lineItems.reduce((sum, item) => sum + item.lineItemTotalAmount, 0)
+      feedback += `\n• Split transaction planned across ${receipt.lineItems.length} line items`
+      feedback += `\n• Line items total: $${lineItemTotal.toFixed(2)}`
+      
+      if (receipt.totalTaxes && receipt.totalTaxes > 0) {
+        const expectedTotal = lineItemTotal + receipt.totalTaxes
+        const difference = Math.abs(receipt.totalAmount - expectedTotal)
+        
+        if (difference < 0.05) {
+          feedback += `\n• Math checks out: Items + Tax = $${expectedTotal.toFixed(2)} ≈ Total $${receipt.totalAmount.toFixed(2)}`
+        } else {
+          feedback += `\n• ⚠️ Math discrepancy: Items + Tax = $${expectedTotal.toFixed(2)}, but Total = $${receipt.totalAmount.toFixed(2)}`
+          feedback += `\n• Will attempt proportional adjustment if difference is small`
+        }
+      } else {
+        const difference = Math.abs(receipt.totalAmount - lineItemTotal)
+        if (difference < 0.05) {
+          feedback += `\n• Math checks out: Line items match receipt total`
+        } else {
+          feedback += `\n• ⚠️ Line items ($${lineItemTotal.toFixed(2)}) don't match total ($${receipt.totalAmount.toFixed(2)})`
+          feedback += `\n• Will attempt proportional adjustment if difference is small`
+        }
+      }
+    } else {
+      feedback += `\n• Single transaction (no line item splits)`
+    }
+    
+    return feedback
+  }
+
   useEffect(() => {
     const fetchInfo = async () => {
       try {
@@ -223,10 +263,14 @@ function App() {
         ? `\n• ${receipt.lineItems.length} line items found:\n${receipt.lineItems.map(item => `  - ${item.productName}: $${item.lineItemTotalAmount.toFixed(2)} (${item.category})`).join('\n')}`
         : ''
       
+      const taxText = receipt.totalTaxes && receipt.totalTaxes > 0 
+        ? `\n• Tax amount: $${receipt.totalTaxes.toFixed(2)}`
+        : ''
+      
       markStepSuccess(1, `✓ Receipt analyzed successfully:
 • Merchant: ${receipt.merchant}
 • Date: ${receipt.transactionDate}
-• Total: $${receipt.totalAmount.toFixed(2)}
+• Total: $${receipt.totalAmount.toFixed(2)}${taxText}
 • Category: ${receipt.category}
 • Memo: ${receipt.memo}${lineItemsText}`)
     } catch (err: unknown) {
@@ -236,7 +280,7 @@ function App() {
 
     // Step 3: Process Data
     setActiveStep(2)
-    markStepSuccess(2, `✓ Data validated and ready for YNAB import`)
+    markStepSuccess(2, generateProcessingFeedback(receipt))
 
     // Step 4: Create YNAB Transaction
     setActiveStep(3)
@@ -259,6 +303,33 @@ function App() {
       if (transactionResult.splitInfo?.attempted) {
         if (transactionResult.splitInfo.successful) {
           splitFeedback = `\n• Split across ${transactionResult.splitInfo.splitCount} categories successfully`
+          
+          // Add tax distribution info if available
+          if (transactionResult.splitInfo.taxDistributed && transactionResult.splitInfo.taxDistributed > 0) {
+            splitFeedback += `\n• Tax distributed: $${transactionResult.splitInfo.taxDistributed.toFixed(2)}`
+          }
+          
+          // Add adjustment info if available
+          if (transactionResult.splitInfo.adjustmentApplied && Math.abs(transactionResult.splitInfo.adjustmentApplied) > 0) {
+            const adjType = transactionResult.splitInfo.adjustmentType
+            const adjTypeText = adjType === 'tolerance' ? 'tolerance adjustment' : 
+                               adjType === 'proportional_adjustment' ? 'proportional adjustment' :
+                               adjType === 'tax_distribution' ? 'with tax distribution' : 'adjustment'
+            splitFeedback += `\n• ${adjTypeText}: ${transactionResult.splitInfo.adjustmentApplied >= 0 ? '+' : ''}$${transactionResult.splitInfo.adjustmentApplied.toFixed(2)}`
+          }
+          
+          // Add detailed breakdown if available
+          if (transactionResult.splitInfo.detailedBreakdown) {
+            const breakdown = transactionResult.splitInfo.detailedBreakdown
+            splitFeedback += `\n• Split breakdown: Items $${breakdown.originalSplitTotal.toFixed(2)}`
+            if (breakdown.taxAmount > 0) {
+              splitFeedback += ` + Tax $${breakdown.taxAmount.toFixed(2)}`
+            }
+            if (Math.abs(breakdown.finalAdjustment) > 0) {
+              splitFeedback += ` + Adj $${breakdown.finalAdjustment.toFixed(2)}`
+            }
+            splitFeedback += ` = $${receipt.totalAmount.toFixed(2)}`
+          }
         } else {
           splitFeedback = `\n• ⚠️ Split transaction attempted but failed: ${transactionResult.splitInfo.reason}`
           splitFeedback += `\n• Expected total: $${transactionResult.splitInfo.expectedAmount?.toFixed(2)}, Split total: $${transactionResult.splitInfo.totalSplitAmount?.toFixed(2)}`
@@ -370,7 +441,7 @@ function App() {
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="Category"
+                  label="Category Override"
                   placeholder="Select category (optional)"
                 />
               )}

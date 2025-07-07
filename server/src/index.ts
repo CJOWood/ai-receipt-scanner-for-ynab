@@ -86,7 +86,8 @@ app.post(
         receipt.transactionDate,
         receipt.memo,
         receipt.totalAmount,
-        receipt.lineItems?.map((li) => ({ category: li.category, amount: li.lineItemTotalAmount }))
+        receipt.lineItems?.map((li) => ({ category: li.category, amount: li.lineItemTotalAmount })),
+        receipt.totalTaxes
       );
       logger.info("Created transaction for account", account);
       return c.json(result, 200);
