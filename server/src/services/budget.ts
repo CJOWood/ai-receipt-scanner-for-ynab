@@ -302,8 +302,7 @@ const retrieveSubtransactions = (
           `Could not find category ID for ${split.category}. Ignoring splits`
         );
         splitInfo.reason = `Category "${split.category}" not found in YNAB`;
-        splitTotals = {};
-        break;
+        return { subtransactions: [], splitInfo };
       }
 
       if (!splitTotals[splitCategoryId]) {
@@ -357,273 +356,212 @@ const processEnhancedSplits = (
   subtransactions: ynab.SaveSubTransaction[];
   splitInfo: EnhancedSplitInfo;
 } => {
+  // Convert all milliunit values to dollars for calculations
+  const fixedTotalAmountDollars = fixedTotalAmount / 1000;
+  const fixedSplitsDollars = fixedSplits.map(s => ({ category: s.category, amountDollars: s.amount / 1000 }));
+  const totalTaxesDollars = totalTaxes || 0;
+
   logger.debug("Starting processEnhancedSplits", {
-    fixedTotalAmount,
-    fixedTotalAmountDollars: fixedTotalAmount / 1000,
-    totalTaxes,
-    totalTaxesDollars: totalTaxes || 0,
+    fixedTotalAmountDollars,
+    totalTaxesDollars,
     fixedSplitsCount: fixedSplits.length,
-    isExpense: fixedTotalAmount < 0,
-    fixedSplits: fixedSplits.map(s => ({ category: s.category, amount: s.amount, amountDollars: s.amount / 1000 }))
+    isExpense: fixedTotalAmountDollars < 0,
+    fixedSplits: fixedSplitsDollars
   });
 
   const subtransactions: ynab.SaveSubTransaction[] = [];
-  
-  // Calculate original split total
-  const originalSplitTotal = fixedSplits.reduce((acc, split) => acc + split.amount, 0);
-  
+  // Calculate original split total in dollars
+  const originalSplitTotalDollars = fixedSplitsDollars.reduce((acc, split) => acc + split.amountDollars, 0);
+
   logger.debug("Original split calculation", {
-    originalSplitTotal,
-    originalSplitTotalDollars: originalSplitTotal / 1000,
-    splitBreakdown: fixedSplits.map(s => `${s.category}: ${s.amount / 1000}`)
+    originalSplitTotalDollars,
+    splitBreakdown: fixedSplitsDollars.map(s => `${s.category}: ${s.amountDollars}`)
   });
-  
+
   const splitInfo: EnhancedSplitInfo = {
     attempted: true,
     successful: false,
     splitCount: fixedSplits.length,
-    totalSplitAmount: originalSplitTotal / 1000, // Convert back to dollars for display
-    expectedAmount: fixedTotalAmount / 1000, // Convert back to dollars for display
+    totalSplitAmount: originalSplitTotalDollars,
+    expectedAmount: fixedTotalAmountDollars,
   };
 
   // Step 1: Distribute taxes proportionally if available
-  let adjustedSplits = [...fixedSplits];
-  let taxDistributed = 0;
-  
-  if (totalTaxes && totalTaxes > 0) {
-    logger.debug("Starting tax distribution", { totalTaxes, totalTaxesDollars: totalTaxes });
-    
-    const fixedTotalTaxes = Math.trunc(totalTaxes * 1000);
-    const splitTotal = adjustedSplits.reduce((acc, split) => acc + split.amount, 0);
-    
-    // Since YNAB uses negative values for expenses, we need to make tax negative too
-    const isExpense = fixedTotalAmount < 0;
-    const taxToDistribute = isExpense ? -fixedTotalTaxes : fixedTotalTaxes;
-    
+  let adjustedSplits = [...fixedSplitsDollars];
+  let taxDistributedDollars = 0;
+
+  if (totalTaxesDollars > 0) {
+    logger.debug("Starting tax distribution", { totalTaxesDollars });
+    const splitTotalDollars = adjustedSplits.reduce((acc, split) => acc + split.amountDollars, 0);
+    const isExpense = fixedTotalAmountDollars < 0;
+    const taxToDistributeDollars = isExpense ? -totalTaxesDollars : totalTaxesDollars;
+
     logger.debug("Tax distribution calculations", {
-      fixedTotalTaxes,
-      fixedTotalTaxesDollars: fixedTotalTaxes / 1000,
-      splitTotal,
-      splitTotalDollars: splitTotal / 1000,
+      totalTaxesDollars,
+      splitTotalDollars,
       isExpense,
-      taxToDistribute,
-      taxToDistributeDollars: taxToDistribute / 1000
+      taxToDistributeDollars
     });
-    
+
     // Distribute tax proportionally to each split
     adjustedSplits = adjustedSplits.map((split, index) => {
-      const proportion = Math.abs(split.amount) / Math.abs(splitTotal); // Use absolute values for proportion calculation
-      const taxShare = index === adjustedSplits.length - 1 
-        ? taxToDistribute - taxDistributed // Last item gets remainder to avoid rounding errors
-        : Math.trunc(proportion * taxToDistribute);
-      
-      taxDistributed += taxShare;
-      
+      const proportion = Math.abs(split.amountDollars) / Math.abs(splitTotalDollars);
+      const taxShareDollars = index === adjustedSplits.length - 1
+        ? taxToDistributeDollars - taxDistributedDollars
+        : Math.round(proportion * taxToDistributeDollars * 100) / 100;
+      taxDistributedDollars += taxShareDollars;
       logger.debug(`Tax distribution for split ${index}`, {
         category: split.category,
-        originalAmount: split.amount,
-        originalAmountDollars: split.amount / 1000,
+        originalAmountDollars: split.amountDollars,
         proportion: proportion.toFixed(4),
-        taxShare,
-        taxShareDollars: taxShare / 1000,
-        newAmount: split.amount + taxShare,
-        newAmountDollars: (split.amount + taxShare) / 1000,
+        taxShareDollars,
+        newAmountDollars: split.amountDollars + taxShareDollars,
         isLast: index === adjustedSplits.length - 1
       });
-      
       return {
         ...split,
-        amount: split.amount + taxShare
+        amountDollars: split.amountDollars + taxShareDollars
       };
     });
-    
+
     logger.debug("Tax distribution completed", {
-      taxDistributed,
-      taxDistributedDollars: taxDistributed / 1000,
-      expectedTax: taxToDistribute,
-      expectedTaxDollars: taxToDistribute / 1000,
-      difference: taxToDistribute - taxDistributed,
-      differenceDollars: (taxToDistribute - taxDistributed) / 1000
+      taxDistributedDollars,
+      expectedTaxDollars: taxToDistributeDollars,
+      differenceDollars: taxToDistributeDollars - taxDistributedDollars
     });
-    
-    splitInfo.taxDistributed = Math.abs(taxDistributed) / 1000; // Report absolute value for user display
+    splitInfo.taxDistributed = Math.abs(taxDistributedDollars);
     splitInfo.adjustmentType = 'tax_distribution';
   }
 
   // Step 2: Check if we need further adjustment
-  const adjustedSplitTotal = adjustedSplits.reduce((acc, split) => acc + split.amount, 0);
-  const difference = fixedTotalAmount - adjustedSplitTotal;
-  const differenceInDollars = Math.abs(difference / 1000);
-  
+  const adjustedSplitTotalDollars = adjustedSplits.reduce((acc, split) => acc + split.amountDollars, 0);
+  const differenceDollars = fixedTotalAmountDollars - adjustedSplitTotalDollars;
+  const absDifferenceDollars = Math.abs(differenceDollars);
+
   logger.debug("After tax distribution, checking alignment", {
-    adjustedSplitTotal,
-    adjustedSplitTotalDollars: adjustedSplitTotal / 1000,
-    fixedTotalAmount,
-    fixedTotalAmountDollars: fixedTotalAmount / 1000,
-    difference,
-    differenceInDollars,
+    adjustedSplitTotalDollars,
+    fixedTotalAmountDollars,
+    differenceDollars,
+    absDifferenceDollars,
     tolerance: SPLIT_TOLERANCE,
-    withinTolerance: differenceInDollars <= SPLIT_TOLERANCE,
-    withinSmallAdjustment: Math.abs(difference) <= 50
+    withinTolerance: absDifferenceDollars <= SPLIT_TOLERANCE,
+    withinSmallAdjustment: absDifferenceDollars <= 0.05
   });
-  
+
   // Step 3: Apply proportional adjustment if within tolerance or always if small
-  if (differenceInDollars <= SPLIT_TOLERANCE || Math.abs(difference) <= 50) { // 50 = 5 cents in fixed-point
-    if (Math.abs(difference) > 0) {
+  if (absDifferenceDollars <= SPLIT_TOLERANCE) {
+    if (absDifferenceDollars > 0) {
       logger.debug("Applying proportional adjustment", {
-        difference,
-        differenceInDollars,
-        adjustedSplitTotal,
-        adjustedSplitTotalDollars: adjustedSplitTotal / 1000
+        differenceDollars,
+        adjustedSplitTotalDollars
       });
-      
-      // Distribute the difference proportionally
-      let remainingDifference = difference;
-      
+      let remainingDifferenceDollars = differenceDollars;
       adjustedSplits = adjustedSplits.map((split, index) => {
         if (index === adjustedSplits.length - 1) {
-          // Last item gets the remainder to ensure exact match
           logger.debug(`Final adjustment for split ${index} (last item)`, {
             category: split.category,
-            beforeAmount: split.amount,
-            beforeAmountDollars: split.amount / 1000,
-            remainingDifference,
-            remainingDifferenceDollars: remainingDifference / 1000,
-            afterAmount: split.amount + remainingDifference,
-            afterAmountDollars: (split.amount + remainingDifference) / 1000
+            beforeAmountDollars: split.amountDollars,
+            remainingDifferenceDollars,
+            afterAmountDollars: split.amountDollars + remainingDifferenceDollars
           });
-          
           return {
             ...split,
-            amount: split.amount + remainingDifference
+            amountDollars: split.amountDollars + remainingDifferenceDollars
           };
         } else {
-          const proportion = split.amount / adjustedSplitTotal;
-          const adjustment = Math.trunc(proportion * difference);
-          remainingDifference -= adjustment;
-          
+          const proportion = split.amountDollars / adjustedSplitTotalDollars;
+          const adjustmentDollars = Math.round(proportion * differenceDollars * 100) / 100;
+          remainingDifferenceDollars -= adjustmentDollars;
           logger.debug(`Proportional adjustment for split ${index}`, {
             category: split.category,
-            beforeAmount: split.amount,
-            beforeAmountDollars: split.amount / 1000,
+            beforeAmountDollars: split.amountDollars,
             proportion: proportion.toFixed(4),
-            adjustment,
-            adjustmentDollars: adjustment / 1000,
-            afterAmount: split.amount + adjustment,
-            afterAmountDollars: (split.amount + adjustment) / 1000,
-            remainingDifference,
-            remainingDifferenceDollars: remainingDifference / 1000
+            adjustmentDollars,
+            afterAmountDollars: split.amountDollars + adjustmentDollars,
+            remainingDifferenceDollars
           });
-          
           return {
             ...split,
-            amount: split.amount + adjustment
+            amountDollars: split.amountDollars + adjustmentDollars
           };
         }
       });
-      
-      splitInfo.adjustmentApplied = difference / 1000;
+      splitInfo.adjustmentApplied = differenceDollars;
       if (!splitInfo.adjustmentType) {
-        splitInfo.adjustmentType = differenceInDollars <= SPLIT_TOLERANCE ? 'tolerance' : 'proportional_adjustment';
+        splitInfo.adjustmentType = absDifferenceDollars <= SPLIT_TOLERANCE ? 'tolerance' : 'proportional_adjustment';
       }
     }
-
     // Step 4: Create subtransactions
     let splitTotals: { [categoryId: string]: number } = {};
-
     logger.debug("Creating subtransactions from adjusted splits", {
       finalAdjustedSplits: adjustedSplits.map(s => ({
         category: s.category,
-        amount: s.amount,
-        amountDollars: s.amount / 1000
+        amountDollars: s.amountDollars
       }))
     });
-
     for (const split of adjustedSplits) {
       const splitCategoryId = budget.data.budget.categories?.find(
         (c) => c.name === split.category
       )?.id;
-
       if (!splitCategoryId) {
         logger.warn(`Could not find category ID for ${split.category}. Ignoring splits`);
         splitInfo.reason = `Category "${split.category}" not found in YNAB`;
         return { subtransactions: [], splitInfo };
       }
-
       if (!splitTotals[splitCategoryId]) {
         splitTotals[splitCategoryId] = 0;
       }
-
-      splitTotals[splitCategoryId] += split.amount;
-      
+      splitTotals[splitCategoryId] += split.amountDollars;
       logger.debug(`Added to category totals`, {
         category: split.category,
         categoryId: splitCategoryId,
-        splitAmount: split.amount,
-        splitAmountDollars: split.amount / 1000,
-        categoryTotal: splitTotals[splitCategoryId],
-        categoryTotalDollars: splitTotals[splitCategoryId] / 1000
+        splitAmountDollars: split.amountDollars,
+        categoryTotalDollars: splitTotals[splitCategoryId]
       });
     }
-
     // Create subtransactions
-    for (const [categoryId, amount] of Object.entries(splitTotals)) {
+    for (const [categoryId, amountDollars] of Object.entries(splitTotals)) {
       const categoryName = budget.data.budget.categories?.find(c => c.id === categoryId)?.name || 'Unknown';
-      
       logger.debug(`Creating subtransaction`, {
         categoryId,
         categoryName,
-        amount,
-        amountDollars: amount / 1000
+        amountDollars
       });
-      
       subtransactions.push({
-        amount: amount,
+        amount: Math.round(amountDollars * 1000),
         category_id: categoryId,
       });
     }
-
     // Final verification
-    const finalSubtransactionTotal = subtransactions.reduce((acc, sub) => acc + sub.amount, 0);
-    
+    const finalSubtransactionTotalDollars = subtransactions.reduce((acc, sub) => acc + sub.amount / 1000, 0);
     logger.debug("Final subtransaction verification", {
       subtransactionCount: subtransactions.length,
-      finalSubtransactionTotal,
-      finalSubtransactionTotalDollars: finalSubtransactionTotal / 1000,
-      expectedTotal: fixedTotalAmount,
-      expectedTotalDollars: fixedTotalAmount / 1000,
-      matches: finalSubtransactionTotal === fixedTotalAmount,
-      difference: fixedTotalAmount - finalSubtransactionTotal,
-      differenceDollars: (fixedTotalAmount - finalSubtransactionTotal) / 1000
+      finalSubtransactionTotalDollars,
+      expectedTotalDollars: fixedTotalAmountDollars,
+      matches: finalSubtransactionTotalDollars === fixedTotalAmountDollars,
+      differenceDollars: fixedTotalAmountDollars - finalSubtransactionTotalDollars
     });
-
     splitInfo.successful = true;
     splitInfo.detailedBreakdown = {
-      originalSplitTotal: originalSplitTotal / 1000,
-      taxAmount: Math.abs(taxDistributed || 0) / 1000, // Always show tax as positive for user display
-      finalAdjustment: (difference || 0) / 1000,
+      originalSplitTotal: originalSplitTotalDollars,
+      taxAmount: Math.abs(taxDistributedDollars),
+      finalAdjustment: differenceDollars,
     };
-
   } else {
     // Difference is too large, don't attempt split
     logger.warn("Split difference too large, not attempting split", {
-      adjustedSplitTotal,
-      adjustedSplitTotalDollars: adjustedSplitTotal / 1000,
-      fixedTotalAmount,
-      fixedTotalAmountDollars: fixedTotalAmount / 1000,
-      difference,
-      differenceInDollars,
+      adjustedSplitTotalDollars,
+      fixedTotalAmountDollars,
+      differenceDollars,
+      absDifferenceDollars,
       tolerance: SPLIT_TOLERANCE
     });
-    
-    splitInfo.reason = `Split amounts ($${(adjustedSplitTotal / 1000).toFixed(2)}) don't match total ($${(fixedTotalAmount / 1000).toFixed(2)}) - difference of $${differenceInDollars.toFixed(2)} exceeds tolerance`;
+    splitInfo.reason = `Split amounts ($${adjustedSplitTotalDollars.toFixed(2)}) don't match total ($${fixedTotalAmountDollars.toFixed(2)}) - difference of $${absDifferenceDollars.toFixed(2)} exceeds tolerance`;
   }
-
   logger.debug("processEnhancedSplits completed", {
     successful: splitInfo.successful,
     subtransactionCount: subtransactions.length,
     splitInfo
   });
-
   return { subtransactions, splitInfo };
 };
