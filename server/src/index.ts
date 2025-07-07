@@ -8,9 +8,13 @@ import { processAndUploadReceipt, uploadReceiptFile } from "./services/receipt";
 import { getYnabInfo, createTransaction } from "./services/budget";
 import { parseReceipt } from "./services/gen-ai";
 import type { Receipt, ApiResponse } from "shared";
+import { serveStatic } from 'hono/bun';
 
 const app = new Hono();
 app.use(cors())
+
+// Serve static files for frontend
+app.use('/*', serveStatic({ root: './server/public', rewriteRequestPath: (path) => path === '/' ? '/index.html' : path }));
 
 app.get("/ynab-info", async (c) => {
   try {
