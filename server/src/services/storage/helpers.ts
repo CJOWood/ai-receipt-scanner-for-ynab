@@ -1,4 +1,5 @@
 import * as crypto from "node:crypto";
+import { logger } from "../../utils/logger";
 
 export function mimeTypeToExtension(mimeType: string): string {
   // Just map types supported by endpoint
@@ -14,6 +15,7 @@ export function mimeTypeToExtension(mimeType: string): string {
     case "image/webp":
       return "webp";
     default:
+      logger.error(`Unsupported MIME type: ${mimeType}`);
       throw new Error(`Unsupported MIME type: ${mimeType}`);
   }
 }
@@ -33,6 +35,7 @@ export function getDateAsPaddedStringParts(date: Date): {
 export function createRandomFileName(fileName: string): string {
   const extensionSymbol = fileName.lastIndexOf(".");
   if (extensionSymbol === -1) {
+    logger.error("File name does not contain an extension");
     throw new Error("File name does not contain an extension");
   }
 

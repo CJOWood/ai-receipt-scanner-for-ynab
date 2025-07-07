@@ -7,6 +7,7 @@ import {
 import { parseReceipt } from "./gen-ai";
 import { getStorageService } from "./storage";
 import env from "../utils/env-vars";
+import { logger } from "../utils/logger";
 
 const storageService = getStorageService();
 
@@ -14,6 +15,7 @@ export const processAndUploadReceipt = async (
   account: string,
   file: File
 ): Promise<Receipt> => {
+  logger.debug("processAndUploadReceipt called", { account, fileType: file.type, fileSize: file.size });
   const fileBuffer = Buffer.from(await file.arrayBuffer());
 
   // Get the list of available YNAB categories
@@ -24,7 +26,7 @@ export const processAndUploadReceipt = async (
   let ynabPayees = env.YNAB_INCLUDE_PAYEES_IN_PROMPT
     ? await getAllPayees()
     : null;
-
+  logger.debug("YNAB categories and payees fetched", { ynabCategories, ynabPayees });
   try {
     receipt = await parseReceipt(
       fileBuffer,
@@ -36,8 +38,9 @@ export const processAndUploadReceipt = async (
     if (!receipt) {
       throw new Error("Receipt was supposedly parsed but null was returned.");
     }
+    logger.info("Receipt parsed successfully");
   } catch (err) {
-    console.error(`Failed to parse the receipt: ${err}`);
+    logger.error(`Failed to parse the receipt:`, err);
     throw new ReceiptParseError();
   }
 
@@ -54,8 +57,9 @@ export const processAndUploadReceipt = async (
         amount: li.lineItemTotalAmount,
       }))
     );
+    logger.info("Receipt imported into YNAB");
   } catch (err) {
-    console.error(`Failed to import the receipt into YNAB: ${err}`);
+    logger.error(`Failed to import the receipt into YNAB:`, err);
     throw new ReceiptYnabImportError();
   }
 
@@ -66,12 +70,13 @@ export const processAndUploadReceipt = async (
         new Date(receipt.transactionDate),
         file
       );
+      logger.info("Receipt uploaded to storage");
     } catch (err) {
-      console.error(`Failed to upload the receipt: ${err}`);
+      logger.error(`Failed to upload the receipt:`, err);
       throw new ReceiptFileUploadError();
     }
   }
-
+  logger.debug("processAndUploadReceipt completed", { receipt });
   return receipt;
 };
 
@@ -80,15 +85,17 @@ export const uploadReceiptFile = async (
   transactionDate: string,
   file: File
 ): Promise<void> => {
+  logger.debug("uploadReceiptFile called", { merchant, transactionDate, fileType: file.type, fileSize: file.size });
   if (!storageService) {
+    logger.warn("No storage service configured");
     return;
   }
-
   await storageService.uploadFile(
     merchant,
     new Date(transactionDate),
     file
   );
+  logger.debug("uploadReceiptFile completed");
 };
 
 export class ReceiptParseError extends Error {

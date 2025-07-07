@@ -1,5 +1,6 @@
 import * as ynab from "ynab";
 import env from "../utils/env-vars";
+import { logger } from "../utils/logger";
 
 const apiKey = env.YNAB_API_KEY;
 const budgetId = env.YNAB_BUDGET_ID;
@@ -60,10 +61,11 @@ export const getAllAccounts = async () => {
 };
 
 export const getYnabInfo = async () => {
+  logger.debug("getYnabInfo called");
   const categories = await getAllEnvelopes();
   const payees = await getAllPayees();
   const accounts = await getAllAccounts();
-
+  logger.debug("getYnabInfo result", { categories, payees, accounts });
   return { categories, payees, accounts };
 };
 
@@ -79,6 +81,7 @@ export const createTransaction = async (
     amount: number;
   }[]
 ): Promise<void> => {
+  logger.debug("createTransaction called", { accountName, merchant, category, transactionDate, memo, totalAmount, splits });
   // Fix all the amounts by multiplying by 1000 and truncating to an integer
   const fixedTotalAmount = Math.trunc(-totalAmount * 1000);
   const fixedSplits = splits?.map((split) => ({
@@ -126,6 +129,7 @@ export const createTransaction = async (
       subtransactions: subtransactions.length > 1 ? subtransactions : undefined,
     },
   });
+  logger.debug("createTransaction completed");
 };
 
 const retrieveSubtransactions = (
@@ -144,7 +148,7 @@ const retrieveSubtransactions = (
   );
 
   if (totalSplitAmount !== fixedTotalAmount) {
-    console.warn(
+    logger.warn(
       `Total split amount ${totalSplitAmount} does not match total amount ${fixedTotalAmount}. Ignoring splits`
     );
   } else {
@@ -156,7 +160,7 @@ const retrieveSubtransactions = (
       )?.id;
 
       if (!splitCategoryId) {
-        console.warn(
+        logger.warn(
           `Could not find category ID for ${split.category}. Ignoring splits`
         );
         splitTotals = {};

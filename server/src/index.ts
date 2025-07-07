@@ -3,22 +3,22 @@ import { cors } from "hono/cors";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import env from "./utils/env-vars";
-import { logger } from "hono/logger";
+import { logger } from "./utils/logger";
 import { processAndUploadReceipt, uploadReceiptFile } from "./services/receipt";
 import { getYnabInfo, createTransaction } from "./services/budget";
 import { parseReceipt } from "./services/gen-ai";
 import type { Receipt, ApiResponse } from "shared";
 
 const app = new Hono();
-app.use(logger())
 app.use(cors())
 
 app.get("/ynab-info", async (c) => {
   try {
     const info = await getYnabInfo();
+    logger.info("Fetched YNAB info");
     return c.json(info, 200);
   } catch (err: any) {
-    console.error("Error getting YNAB info:", err);
+    logger.error("Error getting YNAB info:", err);
     return c.json({ error: err.message }, 500);
   }
 });
@@ -54,9 +54,10 @@ app.post(
         categoriesArr,
         payeesArr || null
       );
+      logger.info("Parsed receipt for categories", categoriesArr, "payees", payeesArr);
       return c.json(receipt, 200);
     } catch (err: any) {
-      console.error("Error parsing receipt:", err);
+      logger.error("Error parsing receipt:", err);
       return c.json({ error: err.message }, 500);
     }
   }
@@ -83,9 +84,10 @@ app.post(
         receipt.totalAmount,
         receipt.lineItems?.map((li) => ({ category: li.category, amount: li.lineItemTotalAmount }))
       );
+      logger.info("Created transaction for account", account);
       return c.json({ success: true }, 200);
     } catch (err: any) {
-      console.error("Error creating transaction:", err);
+      logger.error("Error creating transaction:", err);
       return c.json({ error: err.message }, 500);
     }
   }
@@ -114,9 +116,10 @@ app.post(
     try {
       const { merchant, transactionDate, file } = c.req.valid("form");
       await uploadReceiptFile(merchant, transactionDate, file);
+      logger.info("Uploaded receipt file for merchant", merchant);
       return c.json({ success: true }, 200);
     } catch (err: any) {
-      console.error("Error uploading file:", err);
+      logger.error("Error uploading file:", err);
       return c.json({ error: err.message }, 500);
     }
   }
@@ -150,10 +153,10 @@ app.post(
       const { account, file } = c.req.valid("form");
       
       const receipt = await processAndUploadReceipt(account, file);
-
+      logger.info("Processed and uploaded receipt for account", account);
       return c.json(receipt, 200);
     } catch (err: any) {
-      console.error("Error processing receipt:", err)
+      logger.error("Error processing receipt:", err)
       return c.json(
         { error: err.message || "An unknown error occurred." },
         500

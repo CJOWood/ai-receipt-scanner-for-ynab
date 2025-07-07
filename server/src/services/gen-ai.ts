@@ -5,6 +5,7 @@ import {
 } from "@google/generative-ai";
 import env from "../utils/env-vars";
 import type { Receipt } from "shared";
+import { logger } from "../utils/logger";
 
 const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
@@ -78,11 +79,11 @@ export const parseReceipt = async (
   availableEnvelopes: string[],
   existingPayees: string[] | null = null
 ): Promise<Receipt | null> => {
+  logger.debug("parseReceipt called", { mimeType, availableEnvelopes, existingPayees });
   const chatSession = model.startChat({
     generationConfig: getGeneratingConfig(availableEnvelopes),
     history: [],
   });
-
   const result = await chatSession.sendMessage([
     {
       text: `Process this slip. Make sure you ONLY use a category in the list of available category enum values. ${
@@ -100,11 +101,11 @@ export const parseReceipt = async (
       },
     },
   ]);
-
+  logger.debug("parseReceipt got response", { response: result.response.text() });
   try {
     return JSON.parse(result.response.text());
   } catch (err) {
-    console.error(`Failed to parse receipt: ${err}`);
+    logger.error(`Failed to parse receipt:`, err);
     return null;
   }
 };
