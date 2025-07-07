@@ -12,9 +12,9 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import UploadFileIcon from '@mui/icons-material/UploadFile'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import InsertPhotoIcon from '@mui/icons-material/InsertPhoto'
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import type { Receipt } from 'shared'
 
 const SERVER_URL = import.meta.env.APP_SERVER_URL || 'http://localhost:3000'
@@ -204,11 +204,11 @@ function App() {
           <Button
             variant="contained"
             component="label"
-            startIcon={<UploadFileIcon />}
+            startIcon={<PhotoCameraIcon />}
             onClick={() => setFileTouched(true)}
             sx={{ minWidth: 150 }}
           >
-            Choose File
+            Take Photo
             <input
               type="file"
               accept="image/*"
