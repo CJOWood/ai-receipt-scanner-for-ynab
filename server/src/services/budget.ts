@@ -98,17 +98,36 @@ export const createTransaction = async (
     adjustedDate: string;
     reason: string;
   };
-}> => {
-  logger.debug("createTransaction called", { accountName, merchant, category, transactionDate, memo, totalAmount, splits });
+}> => {  logger.debug("createTransaction called", { 
+    accountName, 
+    merchant, 
+    category, 
+    transactionDate, 
+    memo, 
+    totalAmount, 
+    totalTaxes,
+    splits: splits?.map(s => ({ category: s.category, amount: s.amount })) || null
+  });
   
   const { validatedDate, dateAdjustment } = validateTransactionDate(transactionDate);
-  
+
   // Fix all the amounts by multiplying by 1000 and truncating to an integer
   const fixedTotalAmount = Math.trunc(-totalAmount * 1000);
   const fixedSplits = splits?.map((split) => ({
     category: split.category,
     amount: Math.trunc(-split.amount * 1000),
   }));
+
+  logger.debug("Fixed amounts calculated", {
+    originalTotalAmount: totalAmount,
+    fixedTotalAmount,
+    originalTotalTaxes: totalTaxes,
+    fixedSplits: fixedSplits?.map(s => ({ 
+      category: s.category, 
+      originalAmount: -s.amount / 1000, 
+      fixedAmount: s.amount 
+    })) || null
+  });
 
   const budget = await api.budgets.getBudgetById(budgetId);
 
@@ -139,17 +158,32 @@ export const createTransaction = async (
     }
   }
 
+  const transactionData = {
+    account_id: accountId,
+    amount: fixedTotalAmount,
+    category_id: categoryId,
+    date: validatedDate,
+    payee_name: merchant,
+    approved: false,
+    memo: memo,
+    subtransactions: subtransactions.length > 1 ? subtransactions : undefined,
+  };
+
+  logger.debug("Creating YNAB transaction", {
+    transactionData: {
+      ...transactionData,
+      amount: transactionData.amount,
+      amountDollars: transactionData.amount / 1000,
+      subtransactions: transactionData.subtransactions?.map(sub => ({
+        ...sub,
+        amount: sub.amount,
+        amountDollars: sub.amount / 1000
+      })) || undefined
+    }
+  });
+
   await api.transactions.createTransaction(budgetId, {
-    transaction: {
-      account_id: accountId,
-      amount: fixedTotalAmount,
-      category_id: categoryId,
-      date: validatedDate,
-      payee_name: merchant,
-      approved: false,
-      memo: memo,
-      subtransactions: subtransactions.length > 1 ? subtransactions : undefined,
-    },
+    transaction: transactionData,
   });
   logger.debug("createTransaction completed");
   
@@ -323,10 +357,26 @@ const processEnhancedSplits = (
   subtransactions: ynab.SaveSubTransaction[];
   splitInfo: EnhancedSplitInfo;
 } => {
+  logger.debug("Starting processEnhancedSplits", {
+    fixedTotalAmount,
+    fixedTotalAmountDollars: fixedTotalAmount / 1000,
+    totalTaxes,
+    totalTaxesDollars: totalTaxes || 0,
+    fixedSplitsCount: fixedSplits.length,
+    isExpense: fixedTotalAmount < 0,
+    fixedSplits: fixedSplits.map(s => ({ category: s.category, amount: s.amount, amountDollars: s.amount / 1000 }))
+  });
+
   const subtransactions: ynab.SaveSubTransaction[] = [];
   
   // Calculate original split total
   const originalSplitTotal = fixedSplits.reduce((acc, split) => acc + split.amount, 0);
+  
+  logger.debug("Original split calculation", {
+    originalSplitTotal,
+    originalSplitTotalDollars: originalSplitTotal / 1000,
+    splitBreakdown: fixedSplits.map(s => `${s.category}: ${s.amount / 1000}`)
+  });
   
   const splitInfo: EnhancedSplitInfo = {
     attempted: true,
@@ -341,17 +391,45 @@ const processEnhancedSplits = (
   let taxDistributed = 0;
   
   if (totalTaxes && totalTaxes > 0) {
+    logger.debug("Starting tax distribution", { totalTaxes, totalTaxesDollars: totalTaxes });
+    
     const fixedTotalTaxes = Math.trunc(totalTaxes * 1000);
     const splitTotal = adjustedSplits.reduce((acc, split) => acc + split.amount, 0);
     
+    // Since YNAB uses negative values for expenses, we need to make tax negative too
+    const isExpense = fixedTotalAmount < 0;
+    const taxToDistribute = isExpense ? -fixedTotalTaxes : fixedTotalTaxes;
+    
+    logger.debug("Tax distribution calculations", {
+      fixedTotalTaxes,
+      fixedTotalTaxesDollars: fixedTotalTaxes / 1000,
+      splitTotal,
+      splitTotalDollars: splitTotal / 1000,
+      isExpense,
+      taxToDistribute,
+      taxToDistributeDollars: taxToDistribute / 1000
+    });
+    
     // Distribute tax proportionally to each split
     adjustedSplits = adjustedSplits.map((split, index) => {
-      const proportion = split.amount / splitTotal;
+      const proportion = Math.abs(split.amount) / Math.abs(splitTotal); // Use absolute values for proportion calculation
       const taxShare = index === adjustedSplits.length - 1 
-        ? fixedTotalTaxes - taxDistributed // Last item gets remainder to avoid rounding errors
-        : Math.trunc(proportion * fixedTotalTaxes);
+        ? taxToDistribute - taxDistributed // Last item gets remainder to avoid rounding errors
+        : Math.trunc(proportion * taxToDistribute);
       
       taxDistributed += taxShare;
+      
+      logger.debug(`Tax distribution for split ${index}`, {
+        category: split.category,
+        originalAmount: split.amount,
+        originalAmountDollars: split.amount / 1000,
+        proportion: proportion.toFixed(4),
+        taxShare,
+        taxShareDollars: taxShare / 1000,
+        newAmount: split.amount + taxShare,
+        newAmountDollars: (split.amount + taxShare) / 1000,
+        isLast: index === adjustedSplits.length - 1
+      });
       
       return {
         ...split,
@@ -359,7 +437,16 @@ const processEnhancedSplits = (
       };
     });
     
-    splitInfo.taxDistributed = taxDistributed / 1000;
+    logger.debug("Tax distribution completed", {
+      taxDistributed,
+      taxDistributedDollars: taxDistributed / 1000,
+      expectedTax: taxToDistribute,
+      expectedTaxDollars: taxToDistribute / 1000,
+      difference: taxToDistribute - taxDistributed,
+      differenceDollars: (taxToDistribute - taxDistributed) / 1000
+    });
+    
+    splitInfo.taxDistributed = Math.abs(taxDistributed) / 1000; // Report absolute value for user display
     splitInfo.adjustmentType = 'tax_distribution';
   }
 
@@ -368,15 +455,44 @@ const processEnhancedSplits = (
   const difference = fixedTotalAmount - adjustedSplitTotal;
   const differenceInDollars = Math.abs(difference / 1000);
   
+  logger.debug("After tax distribution, checking alignment", {
+    adjustedSplitTotal,
+    adjustedSplitTotalDollars: adjustedSplitTotal / 1000,
+    fixedTotalAmount,
+    fixedTotalAmountDollars: fixedTotalAmount / 1000,
+    difference,
+    differenceInDollars,
+    tolerance: SPLIT_TOLERANCE,
+    withinTolerance: differenceInDollars <= SPLIT_TOLERANCE,
+    withinSmallAdjustment: Math.abs(difference) <= 50
+  });
+  
   // Step 3: Apply proportional adjustment if within tolerance or always if small
   if (differenceInDollars <= SPLIT_TOLERANCE || Math.abs(difference) <= 50) { // 50 = 5 cents in fixed-point
     if (Math.abs(difference) > 0) {
+      logger.debug("Applying proportional adjustment", {
+        difference,
+        differenceInDollars,
+        adjustedSplitTotal,
+        adjustedSplitTotalDollars: adjustedSplitTotal / 1000
+      });
+      
       // Distribute the difference proportionally
       let remainingDifference = difference;
       
       adjustedSplits = adjustedSplits.map((split, index) => {
         if (index === adjustedSplits.length - 1) {
           // Last item gets the remainder to ensure exact match
+          logger.debug(`Final adjustment for split ${index} (last item)`, {
+            category: split.category,
+            beforeAmount: split.amount,
+            beforeAmountDollars: split.amount / 1000,
+            remainingDifference,
+            remainingDifferenceDollars: remainingDifference / 1000,
+            afterAmount: split.amount + remainingDifference,
+            afterAmountDollars: (split.amount + remainingDifference) / 1000
+          });
+          
           return {
             ...split,
             amount: split.amount + remainingDifference
@@ -385,6 +501,19 @@ const processEnhancedSplits = (
           const proportion = split.amount / adjustedSplitTotal;
           const adjustment = Math.trunc(proportion * difference);
           remainingDifference -= adjustment;
+          
+          logger.debug(`Proportional adjustment for split ${index}`, {
+            category: split.category,
+            beforeAmount: split.amount,
+            beforeAmountDollars: split.amount / 1000,
+            proportion: proportion.toFixed(4),
+            adjustment,
+            adjustmentDollars: adjustment / 1000,
+            afterAmount: split.amount + adjustment,
+            afterAmountDollars: (split.amount + adjustment) / 1000,
+            remainingDifference,
+            remainingDifferenceDollars: remainingDifference / 1000
+          });
           
           return {
             ...split,
@@ -402,6 +531,14 @@ const processEnhancedSplits = (
     // Step 4: Create subtransactions
     let splitTotals: { [categoryId: string]: number } = {};
 
+    logger.debug("Creating subtransactions from adjusted splits", {
+      finalAdjustedSplits: adjustedSplits.map(s => ({
+        category: s.category,
+        amount: s.amount,
+        amountDollars: s.amount / 1000
+      }))
+    });
+
     for (const split of adjustedSplits) {
       const splitCategoryId = budget.data.budget.categories?.find(
         (c) => c.name === split.category
@@ -418,27 +555,75 @@ const processEnhancedSplits = (
       }
 
       splitTotals[splitCategoryId] += split.amount;
+      
+      logger.debug(`Added to category totals`, {
+        category: split.category,
+        categoryId: splitCategoryId,
+        splitAmount: split.amount,
+        splitAmountDollars: split.amount / 1000,
+        categoryTotal: splitTotals[splitCategoryId],
+        categoryTotalDollars: splitTotals[splitCategoryId] / 1000
+      });
     }
 
     // Create subtransactions
     for (const [categoryId, amount] of Object.entries(splitTotals)) {
+      const categoryName = budget.data.budget.categories?.find(c => c.id === categoryId)?.name || 'Unknown';
+      
+      logger.debug(`Creating subtransaction`, {
+        categoryId,
+        categoryName,
+        amount,
+        amountDollars: amount / 1000
+      });
+      
       subtransactions.push({
         amount: amount,
         category_id: categoryId,
       });
     }
 
+    // Final verification
+    const finalSubtransactionTotal = subtransactions.reduce((acc, sub) => acc + sub.amount, 0);
+    
+    logger.debug("Final subtransaction verification", {
+      subtransactionCount: subtransactions.length,
+      finalSubtransactionTotal,
+      finalSubtransactionTotalDollars: finalSubtransactionTotal / 1000,
+      expectedTotal: fixedTotalAmount,
+      expectedTotalDollars: fixedTotalAmount / 1000,
+      matches: finalSubtransactionTotal === fixedTotalAmount,
+      difference: fixedTotalAmount - finalSubtransactionTotal,
+      differenceDollars: (fixedTotalAmount - finalSubtransactionTotal) / 1000
+    });
+
     splitInfo.successful = true;
     splitInfo.detailedBreakdown = {
       originalSplitTotal: originalSplitTotal / 1000,
-      taxAmount: (taxDistributed || 0) / 1000,
+      taxAmount: Math.abs(taxDistributed || 0) / 1000, // Always show tax as positive for user display
       finalAdjustment: (difference || 0) / 1000,
     };
 
   } else {
     // Difference is too large, don't attempt split
+    logger.warn("Split difference too large, not attempting split", {
+      adjustedSplitTotal,
+      adjustedSplitTotalDollars: adjustedSplitTotal / 1000,
+      fixedTotalAmount,
+      fixedTotalAmountDollars: fixedTotalAmount / 1000,
+      difference,
+      differenceInDollars,
+      tolerance: SPLIT_TOLERANCE
+    });
+    
     splitInfo.reason = `Split amounts ($${(adjustedSplitTotal / 1000).toFixed(2)}) don't match total ($${(fixedTotalAmount / 1000).toFixed(2)}) - difference of $${differenceInDollars.toFixed(2)} exceeds tolerance`;
   }
+
+  logger.debug("processEnhancedSplits completed", {
+    successful: splitInfo.successful,
+    subtransactionCount: subtransactions.length,
+    splitInfo
+  });
 
   return { subtransactions, splitInfo };
 };
