@@ -15,6 +15,8 @@ import {
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import InsertPhotoIcon from '@mui/icons-material/InsertPhoto'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
+import ErrorIcon from '@mui/icons-material/Error'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import type { Receipt } from 'shared'
 import Cropper from 'react-easy-crop'
 import { suggestReceiptCrop, cropImageFromPixels } from './utils/imageUtils'
@@ -38,6 +40,8 @@ function App() {
   const [file, setFile] = useState<File | null>(null)
   const [activeStep, setActiveStep] = useState<number>(-1)
   const [logs, setLogs] = useState<string[]>(Array(steps.length).fill(''))
+  const [stepErrors, setStepErrors] = useState<boolean[]>(Array(steps.length).fill(false))
+  const [stepSuccess, setStepSuccess] = useState<boolean[]>(Array(steps.length).fill(false))
   const [accountTouched, setAccountTouched] = useState(false)
   const [fileTouched, setFileTouched] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -67,6 +71,41 @@ function App() {
       arr[index] = message
       return arr
     })
+  }
+
+  const markStepSuccess = (index: number, message: string) => {
+    updateLog(index, message)
+    setStepSuccess((prev) => {
+      const arr = [...prev]
+      arr[index] = true
+      return arr
+    })
+    setStepErrors((prev) => {
+      const arr = [...prev]
+      arr[index] = false
+      return arr
+    })
+  }
+
+  const markStepError = (index: number, message: string) => {
+    updateLog(index, message)
+    setStepErrors((prev) => {
+      const arr = [...prev]
+      arr[index] = true
+      return arr
+    })
+    setStepSuccess((prev) => {
+      const arr = [...prev]
+      arr[index] = false
+      return arr
+    })
+  }
+
+  const resetSteps = () => {
+    setActiveStep(-1)
+    setLogs(Array(steps.length).fill(''))
+    setStepErrors(Array(steps.length).fill(false))
+    setStepSuccess(Array(steps.length).fill(false))
   }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -135,71 +174,123 @@ function App() {
       alert('Please select an account')
       return
     }
-    if (!category) {
-      alert('Please select a category')
-      return
-    }
+
+    // Reset all steps before starting
+    resetSteps()
 
     // Use cropped image if available, otherwise use original file
     const fileToProcess = croppedUrl ? await fetch(croppedUrl).then(r => r.blob()) : file
 
-    let ynabInfo: unknown
+    // Step 1: Get YNAB Data
+    let ynabInfo: { categories: string[], payees: string[], accounts: string[] }
     setActiveStep(0)
     try {
       const res = await fetch(`${SERVER_URL}/ynab-info`)
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || `HTTP ${res.status}`)
+      }
       ynabInfo = await res.json()
-      updateLog(0, 'Fetched YNAB info')
+      markStepSuccess(0, `✓ Fetched ${ynabInfo.categories.length} categories, ${ynabInfo.payees.length} payees, and ${ynabInfo.accounts.length} accounts from YNAB`)
     } catch (err: unknown) {
-      updateLog(0, `Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      markStepError(0, `✗ Failed to fetch YNAB data: ${err instanceof Error ? err.message : 'Unknown error'}`)
       return
     }
 
+    // Step 2: Analyze Receipt
     let receipt: Receipt
     setActiveStep(1)
     try {
       const form = new FormData()
       form.append('file', fileToProcess instanceof Blob ? fileToProcess : file)
-      form.append('categories', JSON.stringify([category]))
-      form.append('payees', JSON.stringify((ynabInfo as { payees?: unknown[] }).payees || []))
+      form.append('categories', JSON.stringify(category ? [category] : ynabInfo.categories))
+      form.append('payees', JSON.stringify(ynabInfo.payees))
+      
       const parseRes = await fetch(`${SERVER_URL}/parse-receipt`, {
         method: 'POST',
         body: form,
       })
+      
+      if (!parseRes.ok) {
+        const errorData = await parseRes.json()
+        throw new Error(errorData.error || `HTTP ${parseRes.status}`)
+      }
+      
       receipt = await parseRes.json()
-      updateLog(1, 'Receipt analyzed')
+      
+      // Create detailed feedback about what was parsed
+      const lineItemsText = receipt.lineItems && receipt.lineItems.length > 0 
+        ? `\n• ${receipt.lineItems.length} line items found:\n${receipt.lineItems.map(item => `  - ${item.productName}: $${item.lineItemTotalAmount.toFixed(2)} (${item.category})`).join('\n')}`
+        : ''
+      
+      markStepSuccess(1, `✓ Receipt analyzed successfully:
+• Merchant: ${receipt.merchant}
+• Date: ${receipt.transactionDate}
+• Total: $${receipt.totalAmount.toFixed(2)}
+• Category: ${receipt.category}
+• Memo: ${receipt.memo}${lineItemsText}`)
     } catch (err: unknown) {
-      updateLog(1, `Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      markStepError(1, `✗ Failed to analyze receipt: ${err instanceof Error ? err.message : 'Unknown error'}`)
       return
     }
 
+    // Step 3: Process Data
     setActiveStep(2)
-    updateLog(2, 'Processing data')
+    markStepSuccess(2, `✓ Data validated and ready for YNAB import`)
 
+    // Step 4: Create YNAB Transaction
     setActiveStep(3)
     try {
-      await fetch(`${SERVER_URL}/create-transaction`, {
+      const createRes = await fetch(`${SERVER_URL}/create-transaction`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ account, receipt }),
       })
-      updateLog(3, 'Transaction created')
+      
+      if (!createRes.ok) {
+        const errorData = await createRes.json()
+        throw new Error(errorData.error || `HTTP ${createRes.status}`)
+      }
+      
+      const splitInfo = receipt.lineItems && receipt.lineItems.length > 1 
+        ? ` with ${receipt.lineItems.length} split transactions`
+        : ''
+      
+      markStepSuccess(3, `✓ Transaction created in YNAB:
+• Account: ${account}
+• Amount: $${receipt.totalAmount.toFixed(2)}
+• Payee: ${receipt.merchant}${splitInfo}`)
     } catch (err: unknown) {
-      updateLog(3, `Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      markStepError(3, `✗ Failed to create YNAB transaction: ${err instanceof Error ? err.message : 'Unknown error'}`)
       return
     }
 
+    // Step 5: Save File
     setActiveStep(4)
     try {
       const upload = new FormData()
       upload.append('merchant', receipt.merchant)
       upload.append('transactionDate', receipt.transactionDate)
       upload.append('file', fileToProcess instanceof Blob ? fileToProcess : file)
-      await fetch(`${SERVER_URL}/upload-file`, { method: 'POST', body: upload })
-      updateLog(4, 'File saved')
+      
+      const uploadRes = await fetch(`${SERVER_URL}/upload-file`, { 
+        method: 'POST', 
+        body: upload 
+      })
+      
+      if (!uploadRes.ok) {
+        const errorData = await uploadRes.json()
+        throw new Error(errorData.error || `HTTP ${uploadRes.status}`)
+      }
+      
+      markStepSuccess(4, `✓ Receipt file saved successfully for future reference`)
     } catch (err: unknown) {
-      updateLog(4, `Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      markStepError(4, `✗ Failed to save receipt file: ${err instanceof Error ? err.message : 'Unknown error'}`)
       return
     }
+
+    // All steps completed successfully
+    setActiveStep(5) // Set to completed state
   }
 
   return (
@@ -346,21 +437,57 @@ function App() {
             variant="contained"
             onClick={processReceipt}
             startIcon={<ReceiptLongIcon />}
-            disabled={!account || !file}
+            disabled={!account || !file || activeStep >= 0}
           >
             Process Receipt
           </Button>
+          {activeStep >= steps.length && (
+            <Button
+              variant="outlined"
+              onClick={() => {
+                resetSteps()
+                setFile(null)
+                setPreviewUrl(null)
+                setCroppedUrl(null)
+                setShowCrop(false)
+              }}
+              sx={{ ml: 2 }}
+            >
+              Process Another Receipt
+            </Button>
+          )}
         </Box>
 
         <Box sx={{ mt: 4 }}>
           <Stepper activeStep={activeStep} orientation="vertical">
             {steps.map((label, index) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
+              <Step key={label} expanded={index <= activeStep}>
+                <StepLabel
+                  error={stepErrors[index]}
+                  StepIconComponent={({ completed, error }) => {
+                    if (error) {
+                      return <ErrorIcon color="error" />
+                    } else if (completed || stepSuccess[index]) {
+                      return <CheckCircleIcon color="success" />
+                    } else {
+                      return <span>{index + 1}</span>
+                    }
+                  }}
+                >
+                  {label}
+                </StepLabel>
                 <StepContent>
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-                    {logs[index]}
-                  </Typography>
+                  {(index <= activeStep || logs[index]) && (
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        whiteSpace: 'pre-line',
+                        color: stepErrors[index] ? 'error.main' : stepSuccess[index] ? 'success.main' : 'text.secondary'
+                      }}
+                    >
+                      {logs[index] || (index === activeStep ? 'In progress...' : '')}
+                    </Typography>
+                  )}
                 </StepContent>
               </Step>
             ))}
