@@ -295,7 +295,21 @@ function App() {
         throw new Error(errorData.error || `HTTP ${uploadRes.status}`)
       }
       
-      markStepSuccess(4, `✓ Receipt file saved successfully for future reference`)
+      const uploadResult = await uploadRes.json()
+      
+      // Build storage feedback based on configuration
+      let storageMessage = ''
+      if (!uploadResult.storageInfo?.configured) {
+        storageMessage = '⚠️ Receipt file not saved - no storage configured\n(This is optional - your YNAB transaction was created successfully)'
+      } else if (uploadResult.storageInfo.type === 'local') {
+        storageMessage = `✓ Receipt file saved locally\n• Location: ${uploadResult.storageInfo.location}`
+      } else if (uploadResult.storageInfo.type === 's3') {
+        storageMessage = `✓ Receipt file uploaded to S3 cloud storage\n• Location: ${uploadResult.storageInfo.location}`
+      } else {
+        storageMessage = '✓ Receipt file saved successfully'
+      }
+      
+      markStepSuccess(4, storageMessage)
     } catch (err: unknown) {
       markStepError(4, `✗ Failed to save receipt file: ${err instanceof Error ? err.message : 'Unknown error'}`)
       return

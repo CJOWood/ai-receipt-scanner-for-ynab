@@ -84,18 +84,54 @@ export const uploadReceiptFile = async (
   merchant: string,
   transactionDate: string,
   file: File
-): Promise<void> => {
+): Promise<{
+  success: true;
+  storageInfo: {
+    configured: boolean;
+    type?: 'local' | 's3';
+    location?: string;
+  };
+}> => {
   logger.debug("uploadReceiptFile called", { merchant, transactionDate, fileType: file.type, fileSize: file.size });
+  
   if (!storageService) {
     logger.warn("No storage service configured. (This is expected if not configured)");
-    return;
+    return {
+      success: true,
+      storageInfo: {
+        configured: false,
+      },
+    };
   }
+
   await storageService.uploadFile(
     merchant,
     new Date(transactionDate),
     file
   );
+  
   logger.debug("uploadReceiptFile completed");
+  
+  // Determine storage type and location info
+  const storageType = env.FILE_STORAGE;
+  let location = '';
+  
+  if (storageType === 'local') {
+    location = env.LOCAL_DIRECTORY || './uploads';
+  } else if (storageType === 's3') {
+    const bucket = env.S3_BUCKET;
+    const prefix = env.S3_PATH_PREFIX;
+    location = prefix ? `s3://${bucket}/${prefix}` : `s3://${bucket}`;
+  }
+  
+  return {
+    success: true,
+    storageInfo: {
+      configured: true,
+      type: storageType,
+      location,
+    },
+  };
 };
 
 export class ReceiptParseError extends Error {
