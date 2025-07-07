@@ -14,6 +14,7 @@ import {
 } from '@mui/material'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
+import InsertPhotoIcon from '@mui/icons-material/InsertPhoto'
 import type { Receipt } from 'shared'
 
 const SERVER_URL = import.meta.env.APP_SERVER_URL || 'http://localhost:3000'
@@ -37,6 +38,7 @@ function App() {
   const [logs, setLogs] = useState<string[]>(Array(steps.length).fill(''))
   const [accountTouched, setAccountTouched] = useState(false)
   const [fileTouched, setFileTouched] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchInfo = async () => {
@@ -64,6 +66,16 @@ function App() {
     setFileTouched(true)
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0])
+      const fileObj = e.target.files[0]
+      if (fileObj.type.startsWith('image/')) {
+        const url = URL.createObjectURL(fileObj)
+        setPreviewUrl(url)
+      } else {
+        setPreviewUrl(null)
+      }
+    } else {
+      setFile(null)
+      setPreviewUrl(null)
     }
   }
 
@@ -205,6 +217,31 @@ function App() {
               onChange={handleFileChange}
             />
           </Button>
+        </Box>
+        <Box sx={{ mt: 2, mb: 2, display: 'flex', justifyContent: 'center' }}>
+          <Box
+            sx={{
+              width: '100%',
+              height: 200,
+              border: '1px solid #555',
+              borderRadius: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: '#222',
+              overflow: 'hidden',
+            }}
+          >
+            {previewUrl ? (
+              <img
+                src={previewUrl}
+                alt="Preview"
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+              />
+            ) : (
+              <InsertPhotoIcon sx={{ fontSize: 80, color: '#666' }} />
+            )}
+          </Box>
         </Box>
 
         <Box sx={{ mt: 2 }}>
