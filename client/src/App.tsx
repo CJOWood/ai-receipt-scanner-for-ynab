@@ -35,6 +35,8 @@ function App() {
   const [file, setFile] = useState<File | null>(null)
   const [activeStep, setActiveStep] = useState<number>(-1)
   const [logs, setLogs] = useState<string[]>(Array(steps.length).fill(''))
+  const [accountTouched, setAccountTouched] = useState(false)
+  const [fileTouched, setFileTouched] = useState(false)
 
   useEffect(() => {
     const fetchInfo = async () => {
@@ -59,6 +61,7 @@ function App() {
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFileTouched(true)
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0])
     }
@@ -145,15 +148,18 @@ function App() {
           autoHighlight
           options={accounts}
           value={account}
-          onChange={(_, value) => setAccount(value)}
+          onChange={(_, value) => {
+            setAccount(value)
+            setAccountTouched(true)
+          }}
           renderInput={(params) => (
             <TextField
               {...params}
               label="Account"
               placeholder="Select account"
-              required
-              error={!account}
-              helperText={!account ? 'Selecting an account is required' : ''}
+              required={accountTouched && !account}
+              error={accountTouched && !account}
+              onBlur={() => setAccountTouched(true)}
             />
           )}
           sx={{ mb: 2 }}
@@ -168,14 +174,28 @@ function App() {
               {...params}
               label="Category"
               placeholder="Select category (optional)"
-              helperText="Selecting a category is optional"
             />
           )}
           sx={{ mb: 2 }}
         />
 
-        <Box sx={{ mt: 2 }}>
-          <Button variant="contained" component="label" startIcon={<UploadFileIcon />}>
+        <Box sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
+          <TextField
+            label="Receipt Image"
+            value={file ? file.name : ''}
+            required={fileTouched && !file}
+            disabled
+            error={fileTouched && !file}
+            InputProps={{ readOnly: true }}
+            sx={{ mr: 2, flex: 1 }}
+          />
+          <Button
+            variant="contained"
+            component="label"
+            startIcon={<UploadFileIcon />}
+            onClick={() => setFileTouched(true)}
+            sx={{ minWidth: 150 }}
+          >
             Choose File
             <input
               type="file"
@@ -185,16 +205,6 @@ function App() {
               onChange={handleFileChange}
             />
           </Button>
-          <TextField
-            label="Receipt Image"
-            value={file ? file.name : ''}
-            required
-            disabled
-            error={!file}
-            helperText={!file ? 'Receipt image is required' : ''}
-            InputProps={{ readOnly: true }}
-            sx={{ ml: 2, width: '60%' }}
-          />
         </Box>
 
         <Box sx={{ mt: 2 }}>
