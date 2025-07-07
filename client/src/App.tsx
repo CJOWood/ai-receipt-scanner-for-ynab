@@ -252,14 +252,26 @@ function App() {
         throw new Error(errorData.error || `HTTP ${createRes.status}`)
       }
       
-      const splitInfo = receipt.lineItems && receipt.lineItems.length > 1 
-        ? ` with ${receipt.lineItems.length} split transactions`
-        : ''
+      const transactionResult = await createRes.json()
+      
+      // Build split transaction feedback
+      let splitFeedback = ''
+      if (transactionResult.splitInfo?.attempted) {
+        if (transactionResult.splitInfo.successful) {
+          splitFeedback = `\n• Split across ${transactionResult.splitInfo.splitCount} categories successfully`
+        } else {
+          splitFeedback = `\n• ⚠️ Split transaction attempted but failed: ${transactionResult.splitInfo.reason}`
+          splitFeedback += `\n• Expected total: $${transactionResult.splitInfo.expectedAmount?.toFixed(2)}, Split total: $${transactionResult.splitInfo.totalSplitAmount?.toFixed(2)}`
+          splitFeedback += `\n• Transaction created as single entry in "${receipt.category}" instead`
+        }
+      } else if (receipt.lineItems && receipt.lineItems.length > 1) {
+        splitFeedback = `\n• Single transaction (no splits attempted)`
+      }
       
       markStepSuccess(3, `✓ Transaction created in YNAB:
 • Account: ${account}
 • Amount: $${receipt.totalAmount.toFixed(2)}
-• Payee: ${receipt.merchant}${splitInfo}`)
+• Payee: ${receipt.merchant}${splitFeedback}`)
     } catch (err: unknown) {
       markStepError(3, `✗ Failed to create YNAB transaction: ${err instanceof Error ? err.message : 'Unknown error'}`)
       return

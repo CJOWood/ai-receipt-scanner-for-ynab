@@ -89,7 +89,17 @@ export const createTransaction = async (
     category: string;
     amount: number;
   }[]
-): Promise<void> => {
+): Promise<{
+  success: true;
+  splitInfo?: {
+    attempted: boolean;
+    successful: boolean;
+    reason?: string;
+    splitCount?: number;
+    totalSplitAmount?: number;
+    expectedAmount?: number;
+  };
+}> => {
   logger.debug("createTransaction called", { accountName, merchant, category, transactionDate, memo, totalAmount, splits });
   // Fix all the amounts by multiplying by 1000 and truncating to an integer
   const fixedTotalAmount = Math.trunc(-totalAmount * 1000);
@@ -112,12 +122,12 @@ export const createTransaction = async (
   // First process the splits, if specified. This is useful for transactions that need to be split across multiple categories
   // If a transaction is split, the sum of the lineItemTotalAmounts must add up to the totalAmount for the slip. If they don't
   // we ignore the splits and just log the transaction against a single category.
-  const subtransactions: ynab.SaveSubTransaction[] = fixedSplits
+  const { subtransactions, splitInfo } = fixedSplits
     ? retrieveSubtransactions(budget, fixedTotalAmount, fixedSplits)
-    : [];
+    : { subtransactions: [], splitInfo: { attempted: false, successful: false } };
 
   let categoryId: string | undefined;
-  if (!subtransactions) {
+  if (subtransactions.length === 0) {
     categoryId = budget.data.budget.categories?.find(
       (c) => c.name === category
     )?.id;
@@ -140,6 +150,11 @@ export const createTransaction = async (
     },
   });
   logger.debug("createTransaction completed");
+  
+  return {
+    success: true,
+    splitInfo: fixedSplits ? splitInfo : undefined,
+  };
 };
 
 const retrieveSubtransactions = (
@@ -149,18 +164,44 @@ const retrieveSubtransactions = (
     category: string;
     amount: number;
   }[]
-) => {
+): {
+  subtransactions: ynab.SaveSubTransaction[];
+  splitInfo: {
+    attempted: boolean;
+    successful: boolean;
+    reason?: string;
+    splitCount?: number;
+    totalSplitAmount?: number;
+    expectedAmount?: number;
+  };
+} => {
   const subtransactions: ynab.SaveSubTransaction[] = [];
-
+  
   const totalSplitAmount = fixedSplits.reduce(
     (acc, split) => acc + split.amount,
     0
   );
 
+  const splitInfo: {
+    attempted: boolean;
+    successful: boolean;
+    reason?: string;
+    splitCount?: number;
+    totalSplitAmount?: number;
+    expectedAmount?: number;
+  } = {
+    attempted: true,
+    successful: false,
+    splitCount: fixedSplits.length,
+    totalSplitAmount: totalSplitAmount / 1000, // Convert back to dollars for display
+    expectedAmount: fixedTotalAmount / 1000, // Convert back to dollars for display
+  };
+
   if (totalSplitAmount !== fixedTotalAmount) {
     logger.warn(
       `Total split amount ${totalSplitAmount} does not match total amount ${fixedTotalAmount}. Ignoring splits`
     );
+    splitInfo.reason = `Split amounts ($${(totalSplitAmount / 1000).toFixed(2)}) don't equal total ($${(fixedTotalAmount / 1000).toFixed(2)})`;
   } else {
     let splitTotals: { [categoryId: string]: number } = {};
 
@@ -173,6 +214,7 @@ const retrieveSubtransactions = (
         logger.warn(
           `Could not find category ID for ${split.category}. Ignoring splits`
         );
+        splitInfo.reason = `Category "${split.category}" not found in YNAB`;
         splitTotals = {};
         break;
       }
@@ -184,13 +226,16 @@ const retrieveSubtransactions = (
       splitTotals[splitCategoryId] += split.amount;
     }
 
-    for (const [categoryId, amount] of Object.entries(splitTotals)) {
-      subtransactions.push({
-        amount: amount,
-        category_id: categoryId,
-      });
+    if (Object.keys(splitTotals).length > 0) {
+      for (const [categoryId, amount] of Object.entries(splitTotals)) {
+        subtransactions.push({
+          amount: amount,
+          category_id: categoryId,
+        });
+      }
+      splitInfo.successful = true;
     }
   }
 
-  return subtransactions;
+  return { subtransactions, splitInfo };
 };
