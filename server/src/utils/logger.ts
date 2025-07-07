@@ -6,9 +6,19 @@ const isDev = env.NODE_ENV !== "production";
 
 function format(level: string, ...args: any[]) {
   const time = new Date().toISOString();
+  const processedArgs = args.map((arg) => {
+    if (typeof arg === "object" && arg !== null) {
+      try {
+        return JSON.stringify(arg);
+      } catch {
+        return String(arg);
+      }
+    }
+    return String(arg);
+  });
   return isDev
-    ? `[${time}] [${level}]` + (args.length ? " " : "") + args.join(" ")
-    : `[${level}]` + (args.length ? " " : "") + args.join(" ");
+    ? `[${time}] [${level}]` + (processedArgs.length ? " " : "") + processedArgs.join(" ")
+    : `[${level}]` + (processedArgs.length ? " " : "") + processedArgs.join(" ");
 }
 
 export const logger = {
