@@ -523,7 +523,19 @@ function App() {
           </Box>
 
           {/* Stepper Section */}
-          <Box sx={{ flex: 1, minWidth: 0, mt: { xs: 4, md: 0 }, display: 'flex', flexDirection: 'column', justifyContent: { xs: 'flex-start', md: 'center' }, height: { md: '100%' } }}>
+          <Box 
+            sx={{ 
+              flex: 1, 
+              minWidth: 0, 
+              mt: { xs: 4, md: 0 }, 
+              display: 'flex', 
+              flexDirection: 'column', 
+              justifyContent: { xs: 'flex-start', md: 'center' }, 
+              height: { md: '100%' },
+              top: { md: 32 }, // adjust as needed for your header spacing
+              alignSelf: { md: 'flex-start' },
+            }}
+          >
             <Stepper activeStep={activeStep} orientation="vertical">
               {steps.map((label, index) => (
                 <Step key={label} expanded={index <= activeStep}>
