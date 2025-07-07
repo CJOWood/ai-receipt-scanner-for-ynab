@@ -401,7 +401,7 @@ function App() {
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="Category"
+                  label="Category Override"
                   placeholder="Select category (optional)"
                 />
               )}
