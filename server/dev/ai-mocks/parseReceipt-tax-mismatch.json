@@ -1,0 +1,12 @@
+{
+  "category": "Technology Replacement",
+  "memo": "Bought a new mouse and keyboard.",
+  "merchant": "Best Buy",
+  "totalAmount": 65.00,
+  "transactionDate": "2025-07-05",
+  "lineItems": [
+    {"category": "Technology Replacement", "lineItemTotalAmount": 30.00, "productName": "Mouse"},
+    {"category": "Technology Replacement", "lineItemTotalAmount": 32.00, "productName": "Keyboard"}
+  ],
+  "totalTaxes": 3.10
+}
