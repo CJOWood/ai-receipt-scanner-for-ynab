@@ -15,6 +15,8 @@ import {
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import InsertPhotoIcon from '@mui/icons-material/InsertPhoto'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
+import ErrorIcon from '@mui/icons-material/Error'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import type { Receipt } from 'shared'
 import Cropper from 'react-easy-crop'
 import { suggestReceiptCrop, cropImageFromPixels } from './utils/imageUtils'
@@ -38,6 +40,8 @@ function App() {
   const [file, setFile] = useState<File | null>(null)
   const [activeStep, setActiveStep] = useState<number>(-1)
   const [logs, setLogs] = useState<string[]>(Array(steps.length).fill(''))
+  const [stepErrors, setStepErrors] = useState<boolean[]>(Array(steps.length).fill(false))
+  const [stepSuccess, setStepSuccess] = useState<boolean[]>(Array(steps.length).fill(false))
   const [accountTouched, setAccountTouched] = useState(false)
   const [fileTouched, setFileTouched] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -67,6 +71,41 @@ function App() {
       arr[index] = message
       return arr
     })
+  }
+
+  const markStepSuccess = (index: number, message: string) => {
+    updateLog(index, message)
+    setStepSuccess((prev) => {
+      const arr = [...prev]
+      arr[index] = true
+      return arr
+    })
+    setStepErrors((prev) => {
+      const arr = [...prev]
+      arr[index] = false
+      return arr
+    })
+  }
+
+  const markStepError = (index: number, message: string) => {
+    updateLog(index, message)
+    setStepErrors((prev) => {
+      const arr = [...prev]
+      arr[index] = true
+      return arr
+    })
+    setStepSuccess((prev) => {
+      const arr = [...prev]
+      arr[index] = false
+      return arr
+    })
+  }
+
+  const resetSteps = () => {
+    setActiveStep(-1)
+    setLogs(Array(steps.length).fill(''))
+    setStepErrors(Array(steps.length).fill(false))
+    setStepSuccess(Array(steps.length).fill(false))
   }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -135,236 +174,405 @@ function App() {
       alert('Please select an account')
       return
     }
-    if (!category) {
-      alert('Please select a category')
-      return
-    }
+
+    // Reset all steps before starting
+    resetSteps()
 
     // Use cropped image if available, otherwise use original file
     const fileToProcess = croppedUrl ? await fetch(croppedUrl).then(r => r.blob()) : file
 
-    let ynabInfo: unknown
+    // Step 1: Get YNAB Data
+    let ynabInfo: { categories: string[], payees: string[], accounts: string[] }
     setActiveStep(0)
     try {
       const res = await fetch(`${SERVER_URL}/ynab-info`)
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || `HTTP ${res.status}`)
+      }
       ynabInfo = await res.json()
-      updateLog(0, 'Fetched YNAB info')
+      markStepSuccess(0, `✓ Fetched ${ynabInfo.categories.length} categories, ${ynabInfo.payees.length} payees, and ${ynabInfo.accounts.length} accounts from YNAB`)
     } catch (err: unknown) {
-      updateLog(0, `Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      markStepError(0, `✗ Failed to fetch YNAB data: ${err instanceof Error ? err.message : 'Unknown error'}`)
       return
     }
 
+    // Step 2: Analyze Receipt
     let receipt: Receipt
     setActiveStep(1)
     try {
       const form = new FormData()
       form.append('file', fileToProcess instanceof Blob ? fileToProcess : file)
-      form.append('categories', JSON.stringify([category]))
-      form.append('payees', JSON.stringify((ynabInfo as { payees?: unknown[] }).payees || []))
+      form.append('categories', JSON.stringify(category ? [category] : ynabInfo.categories))
+      form.append('payees', JSON.stringify(ynabInfo.payees))
+      
       const parseRes = await fetch(`${SERVER_URL}/parse-receipt`, {
         method: 'POST',
         body: form,
       })
+      
+      if (!parseRes.ok) {
+        const errorData = await parseRes.json()
+        throw new Error(errorData.error || `HTTP ${parseRes.status}`)
+      }
+      
       receipt = await parseRes.json()
-      updateLog(1, 'Receipt analyzed')
+      
+      // Create detailed feedback about what was parsed
+      const lineItemsText = receipt.lineItems && receipt.lineItems.length > 0 
+        ? `\n• ${receipt.lineItems.length} line items found:\n${receipt.lineItems.map(item => `  - ${item.productName}: $${item.lineItemTotalAmount.toFixed(2)} (${item.category})`).join('\n')}`
+        : ''
+      
+      markStepSuccess(1, `✓ Receipt analyzed successfully:
+• Merchant: ${receipt.merchant}
+• Date: ${receipt.transactionDate}
+• Total: $${receipt.totalAmount.toFixed(2)}
+• Category: ${receipt.category}
+• Memo: ${receipt.memo}${lineItemsText}`)
     } catch (err: unknown) {
-      updateLog(1, `Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      markStepError(1, `✗ Failed to analyze receipt: ${err instanceof Error ? err.message : 'Unknown error'}`)
       return
     }
 
+    // Step 3: Process Data
     setActiveStep(2)
-    updateLog(2, 'Processing data')
+    markStepSuccess(2, `✓ Data validated and ready for YNAB import`)
 
+    // Step 4: Create YNAB Transaction
     setActiveStep(3)
     try {
-      await fetch(`${SERVER_URL}/create-transaction`, {
+      const createRes = await fetch(`${SERVER_URL}/create-transaction`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ account, receipt }),
       })
-      updateLog(3, 'Transaction created')
+      
+      if (!createRes.ok) {
+        const errorData = await createRes.json()
+        throw new Error(errorData.error || `HTTP ${createRes.status}`)
+      }
+      
+      const transactionResult = await createRes.json()
+      
+      // Build split transaction feedback
+      let splitFeedback = ''
+      if (transactionResult.splitInfo?.attempted) {
+        if (transactionResult.splitInfo.successful) {
+          splitFeedback = `\n• Split across ${transactionResult.splitInfo.splitCount} categories successfully`
+        } else {
+          splitFeedback = `\n• ⚠️ Split transaction attempted but failed: ${transactionResult.splitInfo.reason}`
+          splitFeedback += `\n• Expected total: $${transactionResult.splitInfo.expectedAmount?.toFixed(2)}, Split total: $${transactionResult.splitInfo.totalSplitAmount?.toFixed(2)}`
+          splitFeedback += `\n• Transaction created as single entry in "${receipt.category}" instead`
+        }
+      } else if (receipt.lineItems && receipt.lineItems.length > 1) {
+        splitFeedback = `\n• Single transaction (no splits attempted)`
+      }
+
+      // Build date adjustment feedback
+      let dateFeedback = ''
+      if (transactionResult.dateAdjustment) {
+        dateFeedback = `\n• ⚠️ Date adjusted: ${transactionResult.dateAdjustment.reason}`
+        dateFeedback += `\n• Original: ${transactionResult.dateAdjustment.originalDate}, Used: ${transactionResult.dateAdjustment.adjustedDate}`
+      }
+      
+      markStepSuccess(3, `✓ Transaction created in YNAB:
+• Account: ${account}
+• Amount: $${receipt.totalAmount.toFixed(2)}
+• Payee: ${receipt.merchant}${splitFeedback}${dateFeedback}`)
     } catch (err: unknown) {
-      updateLog(3, `Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      markStepError(3, `✗ Failed to create YNAB transaction: ${err instanceof Error ? err.message : 'Unknown error'}`)
       return
     }
 
+    // Step 5: Save File
     setActiveStep(4)
     try {
       const upload = new FormData()
       upload.append('merchant', receipt.merchant)
       upload.append('transactionDate', receipt.transactionDate)
       upload.append('file', fileToProcess instanceof Blob ? fileToProcess : file)
-      await fetch(`${SERVER_URL}/upload-file`, { method: 'POST', body: upload })
-      updateLog(4, 'File saved')
+      
+      const uploadRes = await fetch(`${SERVER_URL}/upload-file`, { 
+        method: 'POST', 
+        body: upload 
+      })
+      
+      if (!uploadRes.ok) {
+        const errorData = await uploadRes.json()
+        throw new Error(errorData.error || `HTTP ${uploadRes.status}`)
+      }
+      
+      const uploadResult = await uploadRes.json()
+      
+      // Build storage feedback based on configuration
+      let storageMessage = ''
+      if (!uploadResult.storageInfo?.configured) {
+        storageMessage = '⚠️ Receipt file not saved - no storage configured\n(This is optional - your YNAB transaction was created successfully)'
+      } else if (uploadResult.storageInfo.type === 'local') {
+        storageMessage = `✓ Receipt file saved locally\n• Location: ${uploadResult.storageInfo.location}`
+      } else if (uploadResult.storageInfo.type === 's3') {
+        storageMessage = `✓ Receipt file uploaded to S3 cloud storage\n• Location: ${uploadResult.storageInfo.location}`
+      } else {
+        storageMessage = '✓ Receipt file saved successfully'
+      }
+      
+      markStepSuccess(4, storageMessage)
     } catch (err: unknown) {
-      updateLog(4, `Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      markStepError(4, `✗ Failed to save receipt file: ${err instanceof Error ? err.message : 'Unknown error'}`)
       return
     }
+
+    // All steps completed successfully
+    setActiveStep(5) // Set to completed state
   }
 
   return (
     <ThemeProvider theme={theme}>
-      <Container maxWidth="sm" sx={{ textAlign: 'center', mt: 4 }}>
-        <Autocomplete
-          autoHighlight
-          options={accounts}
-          value={account}
-          onChange={(_, value) => {
-            setAccount(value)
-            setAccountTouched(true)
+      <Container maxWidth="md" sx={{ mt: 4 }}>
+        <Typography variant="subtitle1" sx={{ textAlign: 'center', mb: 2, letterSpacing: 1, fontWeight: 500, color: 'text.secondary' }}>
+          YNAB Receipt Uploader
+        </Typography>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            alignItems: { xs: 'stretch', md: 'flex-start' },
+            gap: 4,
           }}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label="Account"
-              placeholder="Select account"
-              required={accountTouched && !account}
-              error={accountTouched && !account}
-              onBlur={() => setAccountTouched(true)}
+        >
+          {/* Form Section */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Autocomplete
+              autoHighlight
+              options={accounts}
+              value={account}
+              onChange={(_, value) => {
+                setAccount(value)
+                setAccountTouched(true)
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Account"
+                  placeholder="Select account"
+                  required={accountTouched && !account}
+                  error={accountTouched && !account}
+                  onBlur={() => setAccountTouched(true)}
+                />
+              )}
+              sx={{ mb: 2 }}
             />
-          )}
-          sx={{ mb: 2 }}
-        />
-        <Autocomplete
-          autoHighlight
-          options={allCategories}
-          value={category}
-          onChange={(_, value) => setCategory(value)}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label="Category"
-              placeholder="Select category (optional)"
+            <Autocomplete
+              autoHighlight
+              options={allCategories}
+              value={category}
+              onChange={(_, value) => setCategory(value)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Category"
+                  placeholder="Select category (optional)"
+                />
+              )}
+              sx={{ mb: 2 }}
             />
-          )}
-          sx={{ mb: 2 }}
-        />
 
-        <Box sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
-          <TextField
-            label="Receipt Image"
-            value={file ? file.name : ''}
-            required={fileTouched && !file}
-            disabled
-            error={fileTouched && !file}
-            InputProps={{ readOnly: true }}
-            sx={{ mr: 2, flex: 1 }}
-          />
-          <Button
-            variant="contained"
-            component="label"
-            startIcon={<PhotoCameraIcon />}
-            onClick={() => setFileTouched(true)}
-            sx={{ minWidth: 150 }}
-          >
-            Take Photo
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              hidden
-              onChange={handleFileChange}
-            />
-          </Button>
-        </Box>
-        <Box sx={{ mt: 2, mb: 2, display: 'flex', justifyContent: 'center' }}>
+            <Box sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
+              <TextField
+                label="Receipt Image"
+                value={file ? file.name : ''}
+                required={fileTouched && !file}
+                disabled
+                error={fileTouched && !file}
+                InputProps={{ readOnly: true }}
+                sx={{ mr: 2, flex: 1 }}
+              />
+              <Button
+                variant="contained"
+                component="label"
+                startIcon={<PhotoCameraIcon />}
+                onClick={() => setFileTouched(true)}
+                sx={{ minWidth: 150 }}
+              >
+                Take Photo
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  hidden
+                  onChange={handleFileChange}
+                />
+              </Button>
+            </Box>
+            <Box sx={{ mt: 2, mb: 2, display: 'flex', justifyContent: 'center' }}>
+              <Box
+                sx={{
+                  width: '100%',
+                  height: 200,
+                  border: '1px solid #555',
+                  borderRadius: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: '#222',
+                  overflow: 'hidden',
+                  position: 'relative',
+                }}
+              >
+                {showCrop && previewUrl ? (
+                  <>
+                    <Cropper
+                      image={previewUrl}
+                      crop={crop}
+                      zoom={zoom}
+                      aspect={3 / 4}
+                      cropShape="rect"
+                      showGrid={true}
+                      onCropChange={setCrop}
+                      onZoomChange={setZoom}
+                      onCropComplete={(_, croppedAreaPixels) => {
+                        setCroppedAreaPixels(croppedAreaPixels)
+                      }}
+                    />
+                    <Box sx={{ position: 'absolute', bottom: 8, left: 8, zIndex: 10 }}>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={handleCropConfirm}
+                        sx={{ mr: 1 }}
+                      >
+                        Crop
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={handleCropSkip}
+                      >
+                        Skip
+                      </Button>
+                    </Box>
+                  </>
+                ) : croppedUrl ? (
+                  <img
+                    src={croppedUrl}
+                    alt="Cropped Preview"
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                      objectFit: 'contain',
+                    }}
+                  />
+                ) : previewUrl ? (
+                  <img
+                    src={previewUrl}
+                    alt="Preview"
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                      objectFit: 'contain',
+                    }}
+                  />
+                ) : (
+                  <InsertPhotoIcon sx={{ fontSize: 80, color: '#666' }} />
+                )}
+              </Box>
+            </Box>
+
+            <Box sx={{ mt: 2 }}>
+              <Button
+                variant="contained"
+                onClick={processReceipt}
+                startIcon={<ReceiptLongIcon />}
+                disabled={!account || !file || activeStep >= 0}
+              >
+                Process Receipt
+              </Button>
+              {activeStep >= steps.length && (
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    resetSteps()
+                    setFile(null)
+                    setPreviewUrl(null)
+                    setCroppedUrl(null)
+                    setShowCrop(false)
+                  }}
+                  sx={{ ml: 2 }}
+                >
+                  Process Another Receipt
+                </Button>
+              )}
+            </Box>
+          </Box>
+
+          {/* Vertical Divider for desktop only */}
           <Box
             sx={{
-              width: '100%',
-              height: 200,
-              border: '1px solid #555',
-              borderRadius: 2,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: '#222',
-              overflow: 'hidden',
-              position: 'relative',
+              display: { xs: 'none', md: 'flex' },
+              alignItems: 'stretch',
+              mx: 2,
             }}
           >
-            {showCrop && previewUrl ? (
-              <>
-                <Cropper
-                  image={previewUrl}
-                  crop={crop}
-                  zoom={zoom}
-                  aspect={3 / 4}
-                  cropShape="rect"
-                  showGrid={true}
-                  onCropChange={setCrop}
-                  onZoomChange={setZoom}
-                  onCropComplete={(_, croppedAreaPixels) => {
-                    setCroppedAreaPixels(croppedAreaPixels)
-                  }}
-                />
-                <Box sx={{ position: 'absolute', bottom: 8, left: 8, zIndex: 10 }}>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={handleCropConfirm}
-                    sx={{ mr: 1 }}
-                  >
-                    Crop
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={handleCropSkip}
-                  >
-                    Skip
-                  </Button>
-                </Box>
-              </>
-            ) : croppedUrl ? (
-              <img
-                src={croppedUrl}
-                alt="Cropped Preview"
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: '100%',
-                  objectFit: 'contain',
-                }}
-              />
-            ) : previewUrl ? (
-              <img
-                src={previewUrl}
-                alt="Preview"
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: '100%',
-                  objectFit: 'contain',
-                }}
-              />
-            ) : (
-              <InsertPhotoIcon sx={{ fontSize: 80, color: '#666' }} />
-            )}
+            <Box
+              sx={{
+                width: '1px',
+                backgroundColor: 'divider',
+                height: '100%',
+                minHeight: 400,
+                alignSelf: 'stretch',
+                opacity: 0.5,
+              }}
+            />
           </Box>
-        </Box>
 
-        <Box sx={{ mt: 2 }}>
-          <Button
-            variant="contained"
-            onClick={processReceipt}
-            startIcon={<ReceiptLongIcon />}
-            disabled={!account || !file}
+          {/* Stepper Section */}
+          <Box 
+            sx={{ 
+              flex: 1, 
+              minWidth: 0, 
+              mt: { xs: 4, md: 0 }, 
+              display: 'flex', 
+              flexDirection: 'column', 
+              justifyContent: { xs: 'flex-start', md: 'center' }, 
+              height: { md: '100%' },
+              top: { md: 32 }, // adjust as needed for your header spacing
+              alignSelf: { md: 'flex-start' },
+            }}
           >
-            Process Receipt
-          </Button>
-        </Box>
-
-        <Box sx={{ mt: 4 }}>
-          <Stepper activeStep={activeStep} orientation="vertical">
-            {steps.map((label, index) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-                <StepContent>
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-                    {logs[index]}
-                  </Typography>
-                </StepContent>
-              </Step>
-            ))}
-          </Stepper>
+            <Stepper activeStep={activeStep} orientation="vertical">
+              {steps.map((label, index) => (
+                <Step key={label} expanded={index <= activeStep}>
+                  <StepLabel
+                    error={stepErrors[index]}
+                    StepIconComponent={({ completed, error }) => {
+                      if (error) {
+                        return <ErrorIcon color="error" />
+                      } else if (completed || stepSuccess[index]) {
+                        return <CheckCircleIcon color="success" />
+                      } else {
+                        return <span>{index + 1}</span>
+                      }
+                    }}
+                  >
+                    {label}
+                  </StepLabel>
+                  <StepContent>
+                    {(index <= activeStep || logs[index]) && (
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          whiteSpace: 'pre-line',
+                          color: stepErrors[index] ? 'error.main' : stepSuccess[index] ? 'success.main' : 'text.secondary'
+                        }}
+                      >
+                        {logs[index] || (index === activeStep ? 'In progress...' : '')}
+                      </Typography>
+                    )}
+                  </StepContent>
+                </Step>
+              ))}
+            </Stepper>
+          </Box>
         </Box>
       </Container>
     </ThemeProvider>

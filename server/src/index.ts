@@ -75,7 +75,7 @@ app.post(
   async (c) => {
     try {
       const { account, receipt } = c.req.valid("json") as { account: string; receipt: Receipt };
-      await createTransaction(
+      const result = await createTransaction(
         account,
         receipt.merchant,
         receipt.category,
@@ -85,7 +85,7 @@ app.post(
         receipt.lineItems?.map((li) => ({ category: li.category, amount: li.lineItemTotalAmount }))
       );
       logger.info("Created transaction for account", account);
-      return c.json({ success: true }, 200);
+      return c.json(result, 200);
     } catch (err: any) {
       logger.error("Error creating transaction:", err);
       return c.json({ error: err.message }, 500);
@@ -115,9 +115,9 @@ app.post(
   async (c) => {
     try {
       const { merchant, transactionDate, file } = c.req.valid("form");
-      await uploadReceiptFile(merchant, transactionDate, file);
+      const result = await uploadReceiptFile(merchant, transactionDate, file);
       logger.info("Uploaded receipt file for merchant", merchant);
-      return c.json({ success: true }, 200);
+      return c.json(result, 200);
     } catch (err: any) {
       logger.error("Error uploading file:", err);
       return c.json({ error: err.message }, 500);
