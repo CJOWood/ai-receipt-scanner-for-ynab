@@ -7,7 +7,6 @@
         "context": ".."
     },
     "features": {
-        "ghcr.io/audacioustux/devcontainers/bun:1": {},
         "ghcr.io/devcontainers/features/docker-in-docker:2": {}
     },
     // Configure tool-specific properties.
