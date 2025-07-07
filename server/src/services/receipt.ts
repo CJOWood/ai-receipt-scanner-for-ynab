@@ -55,7 +55,8 @@ export const processAndUploadReceipt = async (
       receipt.lineItems?.map((li) => ({
         category: li.category,
         amount: li.lineItemTotalAmount,
-      }))
+      })),
+      receipt.totalTaxes
     );
     logger.info("Receipt imported into YNAB");
   } catch (err) {

@@ -3,6 +3,7 @@ export interface Receipt {
   transactionDate: string;
   memo: string;
   totalAmount: number;
+  totalTaxes?: number;
   category: string;
   lineItems?: ReceiptLineItem[];
 }
