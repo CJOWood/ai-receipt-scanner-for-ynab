@@ -16,6 +16,8 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import InsertPhotoIcon from '@mui/icons-material/InsertPhoto'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import type { Receipt } from 'shared'
+import Cropper from 'react-easy-crop'
+import { suggestReceiptCrop, cropImageFromPixels } from './utils/imageUtils'
 
 const SERVER_URL = import.meta.env.APP_SERVER_URL || 'http://localhost:3000'
 
@@ -39,6 +41,11 @@ function App() {
   const [accountTouched, setAccountTouched] = useState(false)
   const [fileTouched, setFileTouched] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [showCrop, setShowCrop] = useState(false)
+  const [crop, setCrop] = useState({ x: 0, y: 0 })
+  const [zoom, setZoom] = useState(1)
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
+  const [croppedUrl, setCroppedUrl] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchInfo = async () => {
@@ -62,7 +69,7 @@ function App() {
     })
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setFileTouched(true)
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0])
@@ -70,13 +77,52 @@ function App() {
       if (fileObj.type.startsWith('image/')) {
         const url = URL.createObjectURL(fileObj)
         setPreviewUrl(url)
+        setCroppedUrl(null)
+        setShowCrop(true)
+        
+        // Try to suggest a crop area
+        try {
+          const suggestion = await suggestReceiptCrop(url)
+          if (suggestion) {
+            // Apply suggested crop as initial position
+            setCrop({ x: suggestion.x, y: suggestion.y })
+            setZoom(1)
+          }
+        } catch (error) {
+          console.warn('Could not suggest crop area:', error)
+        }
       } else {
         setPreviewUrl(null)
+        setCroppedUrl(null)
+        setShowCrop(false)
       }
     } else {
       setFile(null)
       setPreviewUrl(null)
+      setCroppedUrl(null)
+      setShowCrop(false)
     }
+  }
+
+  // Called when user confirms crop
+  const handleCropConfirm = async () => {
+    if (previewUrl && croppedAreaPixels) {
+      const cropped = await cropImageFromPixels(
+        previewUrl, 
+        croppedAreaPixels.x, 
+        croppedAreaPixels.y, 
+        croppedAreaPixels.width, 
+        croppedAreaPixels.height
+      )
+      setCroppedUrl(cropped)
+      setShowCrop(false)
+    }
+  }
+
+  // Called when user skips crop
+  const handleCropSkip = () => {
+    setShowCrop(false)
+    setCroppedUrl(null)
   }
 
   const processReceipt = async () => {
@@ -94,14 +140,17 @@ function App() {
       return
     }
 
-    let ynabInfo: any
+    // Use cropped image if available, otherwise use original file
+    const fileToProcess = croppedUrl ? await fetch(croppedUrl).then(r => r.blob()) : file
+
+    let ynabInfo: unknown
     setActiveStep(0)
     try {
       const res = await fetch(`${SERVER_URL}/ynab-info`)
       ynabInfo = await res.json()
       updateLog(0, 'Fetched YNAB info')
-    } catch (err: any) {
-      updateLog(0, `Error: ${err.message}`)
+    } catch (err: unknown) {
+      updateLog(0, `Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
       return
     }
 
@@ -109,17 +158,17 @@ function App() {
     setActiveStep(1)
     try {
       const form = new FormData()
-      form.append('file', file)
+      form.append('file', fileToProcess instanceof Blob ? fileToProcess : file)
       form.append('categories', JSON.stringify([category]))
-      form.append('payees', JSON.stringify(ynabInfo.payees))
+      form.append('payees', JSON.stringify((ynabInfo as { payees?: unknown[] }).payees || []))
       const parseRes = await fetch(`${SERVER_URL}/parse-receipt`, {
         method: 'POST',
         body: form,
       })
       receipt = await parseRes.json()
       updateLog(1, 'Receipt analyzed')
-    } catch (err: any) {
-      updateLog(1, `Error: ${err.message}`)
+    } catch (err: unknown) {
+      updateLog(1, `Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
       return
     }
 
@@ -134,8 +183,8 @@ function App() {
         body: JSON.stringify({ account, receipt }),
       })
       updateLog(3, 'Transaction created')
-    } catch (err: any) {
-      updateLog(3, `Error: ${err.message}`)
+    } catch (err: unknown) {
+      updateLog(3, `Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
       return
     }
 
@@ -144,11 +193,11 @@ function App() {
       const upload = new FormData()
       upload.append('merchant', receipt.merchant)
       upload.append('transactionDate', receipt.transactionDate)
-      upload.append('file', file)
+      upload.append('file', fileToProcess instanceof Blob ? fileToProcess : file)
       await fetch(`${SERVER_URL}/upload-file`, { method: 'POST', body: upload })
       updateLog(4, 'File saved')
-    } catch (err: any) {
-      updateLog(4, `Error: ${err.message}`)
+    } catch (err: unknown) {
+      updateLog(4, `Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
       return
     }
   }
@@ -230,13 +279,61 @@ function App() {
               justifyContent: 'center',
               background: '#222',
               overflow: 'hidden',
+              position: 'relative',
             }}
           >
-            {previewUrl ? (
+            {showCrop && previewUrl ? (
+              <>
+                <Cropper
+                  image={previewUrl}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={3 / 4}
+                  cropShape="rect"
+                  showGrid={true}
+                  onCropChange={setCrop}
+                  onZoomChange={setZoom}
+                  onCropComplete={(_, croppedAreaPixels) => {
+                    setCroppedAreaPixels(croppedAreaPixels)
+                  }}
+                />
+                <Box sx={{ position: 'absolute', bottom: 8, left: 8, zIndex: 10 }}>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={handleCropConfirm}
+                    sx={{ mr: 1 }}
+                  >
+                    Crop
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={handleCropSkip}
+                  >
+                    Skip
+                  </Button>
+                </Box>
+              </>
+            ) : croppedUrl ? (
+              <img
+                src={croppedUrl}
+                alt="Cropped Preview"
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain',
+                }}
+              />
+            ) : previewUrl ? (
               <img
                 src={previewUrl}
                 alt="Preview"
-                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain',
+                }}
               />
             ) : (
               <InsertPhotoIcon sx={{ fontSize: 80, color: '#666' }} />
