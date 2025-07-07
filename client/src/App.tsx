@@ -676,7 +676,8 @@ ${lineItemsText}`)
                             </TableHead>
                             <TableBody>
                               {Object.entries(groupLineItemsByCategory(analyzedReceipt.lineItems)).map(([cat, items]) => {
-                                const catTotal = items.reduce((sum, item) => sum + item.lineItemTotalAmount * (item.quantity || 1), 0)
+                                // Correct category total: sum of (lineItemTotalAmount) only, not multiplied by quantity
+                                const catTotal = items.reduce((sum, item) => sum + item.lineItemTotalAmount, 0)
                                 return (
                                   <>
                                     <TableRow key={cat} sx={{ backgroundColor: '#222' }}>
