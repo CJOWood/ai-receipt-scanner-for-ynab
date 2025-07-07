@@ -1,6 +1,8 @@
+import env from "./env-vars";
+
 // Bun-based logger utility. Differentiates between development and production.
 
-const isDev = process.env.NODE_ENV !== "production";
+const isDev = env.NODE_ENV !== "production";
 
 function format(level: string, ...args: any[]) {
   const time = new Date().toISOString();
