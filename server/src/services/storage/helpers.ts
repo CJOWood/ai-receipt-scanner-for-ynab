@@ -15,7 +15,7 @@ export function mimeTypeToExtension(mimeType: string): string {
     case "image/webp":
       return "webp";
     default:
-      logger.error(`Unsupported MIME type: ${mimeType}`);
+      logger.warn(`Unsupported MIME type: ${mimeType}`);
       throw new Error(`Unsupported MIME type: ${mimeType}`);
   }
 }
