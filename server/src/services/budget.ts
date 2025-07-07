@@ -4,28 +4,35 @@ import { logger } from "../utils/logger";
 
 const apiKey = env.YNAB_API_KEY;
 const budgetId = env.YNAB_BUDGET_ID;
-const allowedCategories = env.YNAB_CATEGORY_GROUPS;
+// Use the already-normalized array from env-vars
+const allowedCategoryGroups: string[] = env.YNAB_CATEGORY_GROUPS;
 
 const api = new ynab.API(apiKey);
 
 export const getAllEnvelopes = async () => {
+  logger.debug("getAllEnvelopes called", { budgetId, allowedCategoryGroups });
   const budget = await api.budgets.getBudgetById(budgetId);
+  logger.debug("Fetched budget", { categories: budget.data.budget.categories, category_groups: budget.data.budget.category_groups });
 
-  const envelopes = !allowedCategories
-    ? budget.data.budget.categories?.map((c) => c?.name || "").filter((c) => c)
-    : budget.data.budget.category_groups
-        ?.filter((c) => allowedCategories.some((ac) => ac === c.name))
-        .map((c) => c.id)
-        .map((c) =>
-          budget.data.budget.categories?.filter(
-            (cat) => cat.category_group_id === c
-          )
-        )
-        .flat()
-        .map((c) => c?.name || "")
-        .filter((c) => c);
+  let envelopes;
+  if (!allowedCategoryGroups.length) {
+    // No filtering, include all categories
+    envelopes = budget.data.budget.categories?.map((c) => c?.name || "").filter((c) => c);
+  } else {
+    // Filter by allowed category group names
+    const allowedGroupIds = (budget.data.budget.category_groups || [])
+      .filter((c) => allowedCategoryGroups.includes(c.name))
+      .map((c) => c.id);
+    envelopes = (budget.data.budget.categories || [])
+      .filter((cat) => allowedGroupIds.includes(cat.category_group_id))
+      .map((c) => c?.name || "")
+      .filter((c) => c);
+  }
+
+  logger.debug("getAllEnvelopes result", { envelopes });
 
   if (!envelopes) {
+    logger.warn("No envelopes found", { budgetId, allowedCategoryGroups });
     throw new Error("No envelopes found");
   }
 
