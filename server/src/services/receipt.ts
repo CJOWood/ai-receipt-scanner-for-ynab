@@ -87,7 +87,7 @@ export const uploadReceiptFile = async (
 ): Promise<void> => {
   logger.debug("uploadReceiptFile called", { merchant, transactionDate, fileType: file.type, fileSize: file.size });
   if (!storageService) {
-    logger.warn("No storage service configured");
+    logger.warn("No storage service configured. (This is expected if not configured)");
     return;
   }
   await storageService.uploadFile(
