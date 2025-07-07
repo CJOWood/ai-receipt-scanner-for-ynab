@@ -10,7 +10,7 @@ import { logger } from "../utils/logger";
 const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
   model: env.GEMINI_MODEL,
-  systemInstruction: `Please process this slip. Categorize each line item individually based on the line item description. You should also provide a category for the entire slip based on the highest spent category in the line items. If there are no line items, use the name of the merchant to try and determine the category. Provide a very short memo which summarises what products were purchased. Output the transaction date in the format: 'YYYY-MM-DD'. If the slip doesn't have the full date, use the current date, which is ${new Date().toDateString()}, to try determine the full date`,
+  systemInstruction: `Please process this receipt slip. Categorize each line item individually based on the line item description. You should also provide a category for the entire slip based on the highest spent category in the line items. If there are no line items, use the name of the merchant to try and determine the category. Provide a very short memo which summarises what products were purchased. Output the transaction date in the format: 'YYYY-MM-DD'. If the slip doesn't have the full date, use the current date, which is ${new Date().toDateString()}, to try determine the full date. Try to include total taxes paid.`,
 });
 
 const getGeneratingConfig = (
@@ -32,6 +32,9 @@ const getGeneratingConfig = (
       },
       memo: {
         type: SchemaType.STRING,
+      },
+      totalTaxes: {
+        type: SchemaType.NUMBER,
       },
       totalAmount: {
         type: SchemaType.NUMBER,
