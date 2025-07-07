@@ -16,7 +16,11 @@
 		"build:shared": "cd shared && bun run build",
 		"build:server": "cd server && bun run build",
 		"build": "bun run build:shared && bun run build:server && bun run build:client",
-		"postinstall": "bun run build:shared && bun run build:server"
+		"postinstall": "bun run build:shared && bun run build:server",
+		"dev:mock-ai:singlecat": "concurrently \"bun run dev:shared\" \"bun run dev:server:mock-ai:singlecat\" \"bun run dev:client\"",
+		"dev:mock-ai:multicat": "concurrently \"bun run dev:shared\" \"bun run dev:server:mock-ai:multicat\" \"bun run dev:client\"",
+		"dev:mock-ai:tax-mismatch": "concurrently \"bun run dev:shared\" \"bun run dev:server:mock-ai:tax-mismatch\" \"bun run dev:client\"",
+		"dev:mock-ai:missing-category": "concurrently \"bun run dev:shared\" \"bun run dev:server:mock-ai:missing-category\" \"bun run dev:client\""
 	},
 	"keywords": ["bun", "hono", "react", "vite", "monorepo"],
   "devDependencies": {
