@@ -5,65 +5,63 @@ import { logger } from "../utils/logger";
 const apiKey = env.YNAB_API_KEY;
 const budgetId = env.YNAB_BUDGET_ID;
 // Use the already-normalized array from env-vars
-const allowedCategoryGroups: string[] = env.YNAB_CATEGORY_GROUPS;
+const allowedCategories: string[] = env.YNAB_CATEGORY_GROUPS;
 
 const api = new ynab.API(apiKey);
 
 export const getAllEnvelopes = async () => {
-  logger.debug("getAllEnvelopes called", { budgetId, allowedCategoryGroups });
-  const budget = await api.budgets.getBudgetById(budgetId);
-  logger.debug("Fetched budget", { categories: budget.data.budget.categories, category_groups: budget.data.budget.category_groups });
+  logger.debug("getAllEnvelopes called", { budgetId, allowedCategories });
+  // Use the lighter endpoint
+  const categoryGroupsResp = await api.categories.getCategories(budgetId);
+  const categoryGroups = categoryGroupsResp.data.category_groups;
+  logger.debug("Fetched category groups", { categoryGroups });
 
-  let envelopes;
-  if (!allowedCategoryGroups.length) {
-    // No filtering, include all categories
-    envelopes = budget.data.budget.categories?.map((c) => c?.name || "").filter((c) => c);
+  let envelopes: string[] = [];
+  if (!allowedCategories) {
+    envelopes = categoryGroups
+      .map((group) => group.categories?.map((c) => c.name) || [])
+      .flat()
+      .filter((c) => c);
   } else {
-    // Filter by allowed category group names
-    const allowedGroupIds = (budget.data.budget.category_groups || [])
-      .filter((c) => allowedCategoryGroups.includes(c.name))
-      .map((c) => c.id);
-    envelopes = (budget.data.budget.categories || [])
-      .filter((cat) => allowedGroupIds.includes(cat.category_group_id))
-      .map((c) => c?.name || "")
+    envelopes = categoryGroups
+      .filter((group) => allowedCategories.some((ac) => ac === group.name))
+      .map((group) => group.categories?.map((c) => c.name) || [])
+      .flat()
       .filter((c) => c);
   }
-
   logger.debug("getAllEnvelopes result", { envelopes });
-
-  if (!envelopes) {
-    logger.warn("No envelopes found", { budgetId, allowedCategoryGroups });
+  if (!envelopes.length) {
+    logger.warn("No envelopes found", { budgetId, allowedCategories });
     throw new Error("No envelopes found");
   }
-
   return envelopes;
 };
 
 export const getAllPayees = async () => {
-  const budget = await api.budgets.getBudgetById(budgetId);
-
-  const payees = budget.data.budget.payees
+  logger.debug("getAllPayees called", { budgetId });
+  const payeesResp = await api.payees.getPayees(budgetId);
+  const payees = payeesResp.data.payees
     ?.filter((p) => p.name && !p.deleted)
     .map((p) => p.name);
-
-  if (!payees) {
+  logger.debug("getAllPayees result", { payees });
+  if (!payees || !payees.length) {
+    logger.warn("No payees found", { budgetId });
     throw new Error("No payees found");
   }
-
   return payees;
 };
 
 export const getAllAccounts = async () => {
-  const budget = await api.budgets.getBudgetById(budgetId);
-
-  const accounts = budget.data.budget.accounts
+  logger.debug("getAllAccounts called", { budgetId });
+  const accountsResp = await api.accounts.getAccounts(budgetId);
+  const accounts = accountsResp.data.accounts
     ?.filter((a) => !a.closed && !a.deleted)
     .map((a) => a.name);
-
-  if (!accounts) {
+  logger.debug("getAllAccounts result", { accounts });
+  if (!accounts || !accounts.length) {
+    logger.warn("No accounts found", { budgetId });
     throw new Error("No accounts found");
   }
-
   return accounts;
 };
 
@@ -103,6 +101,7 @@ export const createTransaction = async (
   )?.id;
 
   if (!accountId) {
+    logger.error("Account not found", { accountName, budgetId });
     throw new Error("Account not found");
   }
 
