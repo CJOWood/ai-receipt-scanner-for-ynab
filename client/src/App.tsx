@@ -267,11 +267,18 @@ function App() {
       } else if (receipt.lineItems && receipt.lineItems.length > 1) {
         splitFeedback = `\n• Single transaction (no splits attempted)`
       }
+
+      // Build date adjustment feedback
+      let dateFeedback = ''
+      if (transactionResult.dateAdjustment) {
+        dateFeedback = `\n• ⚠️ Date adjusted: ${transactionResult.dateAdjustment.reason}`
+        dateFeedback += `\n• Original: ${transactionResult.dateAdjustment.originalDate}, Used: ${transactionResult.dateAdjustment.adjustedDate}`
+      }
       
       markStepSuccess(3, `✓ Transaction created in YNAB:
 • Account: ${account}
 • Amount: $${receipt.totalAmount.toFixed(2)}
-• Payee: ${receipt.merchant}${splitFeedback}`)
+• Payee: ${receipt.merchant}${splitFeedback}${dateFeedback}`)
     } catch (err: unknown) {
       markStepError(3, `✗ Failed to create YNAB transaction: ${err instanceof Error ? err.message : 'Unknown error'}`)
       return

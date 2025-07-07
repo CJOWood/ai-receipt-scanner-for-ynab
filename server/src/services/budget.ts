@@ -99,8 +99,16 @@ export const createTransaction = async (
     totalSplitAmount?: number;
     expectedAmount?: number;
   };
+  dateAdjustment?: {
+    originalDate: string;
+    adjustedDate: string;
+    reason: string;
+  };
 }> => {
   logger.debug("createTransaction called", { accountName, merchant, category, transactionDate, memo, totalAmount, splits });
+  
+  const { validatedDate, dateAdjustment } = validateTransactionDate(transactionDate);
+  
   // Fix all the amounts by multiplying by 1000 and truncating to an integer
   const fixedTotalAmount = Math.trunc(-totalAmount * 1000);
   const fixedSplits = splits?.map((split) => ({
@@ -142,7 +150,7 @@ export const createTransaction = async (
       account_id: accountId,
       amount: fixedTotalAmount,
       category_id: categoryId,
-      date: transactionDate,
+      date: validatedDate,
       payee_name: merchant,
       approved: false,
       memo: memo,
@@ -154,7 +162,58 @@ export const createTransaction = async (
   return {
     success: true,
     splitInfo: fixedSplits ? splitInfo : undefined,
+    dateAdjustment,
   };
+};
+
+const validateTransactionDate = (transactionDate: string): {
+  validatedDate: string;
+  dateAdjustment?: {
+    originalDate: string;
+    adjustedDate: string;
+    reason: string;
+  };
+} => {
+  const receiptDate = new Date(transactionDate);
+  const today = new Date();
+  const fiveYearsAgo = new Date();
+  fiveYearsAgo.setFullYear(today.getFullYear() - 5);
+  
+  // Set time to start of day for comparison
+  today.setHours(23, 59, 59, 999);
+  fiveYearsAgo.setHours(0, 0, 0, 0);
+  receiptDate.setHours(0, 0, 0, 0);
+  
+  let validatedDate = transactionDate;
+  let dateAdjustment: { originalDate: string; adjustedDate: string; reason: string } | undefined;
+  
+  if (receiptDate > today) {
+    const adjustedDate = today.toISOString().substring(0, 10);
+    logger.warn("Transaction date is in the future, using today's date instead", { 
+      originalDate: transactionDate, 
+      adjustedDate 
+    });
+    validatedDate = adjustedDate;
+    dateAdjustment = {
+      originalDate: transactionDate,
+      adjustedDate,
+      reason: "Date was in the future"
+    };
+  } else if (receiptDate < fiveYearsAgo) {
+    const adjustedDate = fiveYearsAgo.toISOString().substring(0, 10);
+    logger.warn("Transaction date is more than 5 years ago, using 5 years ago instead", { 
+      originalDate: transactionDate, 
+      adjustedDate 
+    });
+    validatedDate = adjustedDate;
+    dateAdjustment = {
+      originalDate: transactionDate,
+      adjustedDate,
+      reason: "Date was more than 5 years ago"
+    };
+  }
+  
+  return { validatedDate, dateAdjustment };
 };
 
 const retrieveSubtransactions = (
