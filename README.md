@@ -10,6 +10,8 @@ A service that processes receipt images using Google's Gemini AI and automatical
 - Creates transactions in YNAB with proper categorization
 - Supports split transactions for line items
 - Basic auth protection for API endpoints
+- Built-in cropping interface with automatic crop suggestion
+- Rotate images before upload
 
 ## Repository Structure
 
@@ -111,6 +113,8 @@ The following environment variables let you configure the application:
 | `APP_PORT`                      | Optional                         | Port that the application should run on. Will default to `3000` if not specified.                                                                                                                                                                                                                     |
 | `APP_API_KEY`                   | Required                         | The service uses Basic authentication to secure the `/upload` endpoint. This environment variable is the username.                                                                                                                                                                                    |
 | `APP_API_SECRET`                | Required                         | The service uses Basic authentication to secure the `/upload` endpoint. This environment variable is the password.                                                                                                                                                                                    |
+| `APP_TRUSTED_IPS` | Optional | A comma-separated list of client IP addresses, IP ranges (`start-end`) or CIDR blocks that should bypass Basic authentication.
+| `APP_DISABLE_AUTH` | Optional | Set to `true` to disable authentication entirely.
 | `MAX_FILE_SIZE`                 | Optional                         | The maximum upload file size if bytes. Defaults to 5MB if not specified.                                                                                                                                                                                                                              |
 | `FILE_STORAGE`                  | Optional                         | Configure where you want to save slips to: `s3` or `local`. If not specified, slips won't be saved.                                                                                                                                                                                                   |
 | `DATE_SUBDIRECTORES`            | Optional                         | Configure whether to use the transaction date to group slips in sub-directories.<br/><br/>If `false`, files will be stored in a single directory with name: `2025-01-11_merchant_12343452345.pdf`.<br/><br/>If `true`, files will be stored in subdirectories: `2025/01/11/merchant_12343452345.pdf`. |

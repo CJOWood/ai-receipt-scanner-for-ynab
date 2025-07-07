@@ -4,22 +4,31 @@ import {
   getAllEnvelopes as getAllCategories,
   getAllPayees,
 } from "./budget";
-import { parseReceipt } from "./gen-ai";
+import { parseReceipt, buildPrompt } from "./gen-ai";
 import { getStorageService } from "./storage";
 import env from "../utils/env-vars";
 import { logger } from "../utils/logger";
 
 const storageService = getStorageService();
 
+export type ReceiptProgressHandler = (
+  event: string,
+  data?: unknown,
+) => void | Promise<void>;
+
 export const processAndUploadReceipt = async (
   account: string,
-  file: File
+  file: File,
+  onProgress?: ReceiptProgressHandler,
 ): Promise<Receipt> => {
   logger.debug("processAndUploadReceipt called", { account, fileType: file.type, fileSize: file.size });
   const fileBuffer = Buffer.from(await file.arrayBuffer());
 
+  await onProgress?.("upload-start");
+
   // Get the list of available YNAB categories
   const ynabCategories = await getAllCategories();
+  await onProgress?.("categories-loaded", ynabCategories);
 
   let receipt: Receipt | null = null;
 
@@ -28,11 +37,12 @@ export const processAndUploadReceipt = async (
     : null;
   logger.debug("YNAB categories and payees fetched", { ynabCategories, ynabPayees });
   try {
+    await onProgress?.("request-gemini", buildPrompt(null));
     receipt = await parseReceipt(
       fileBuffer,
       file.type,
       ynabCategories,
-      ynabPayees
+      ynabPayees,
     );
 
     if (!receipt) {
@@ -45,6 +55,7 @@ export const processAndUploadReceipt = async (
   }
 
   try {
+    await onProgress?.("request-ynab");
     await createTransaction(
       account,
       receipt.merchant,
@@ -66,10 +77,11 @@ export const processAndUploadReceipt = async (
 
   if (storageService) {
     try {
+      await onProgress?.("upload-file");
       await storageService.uploadFile(
         receipt.merchant,
         new Date(receipt.transactionDate),
-        file
+        file,
       );
       logger.info("Receipt uploaded to storage");
     } catch (err) {
