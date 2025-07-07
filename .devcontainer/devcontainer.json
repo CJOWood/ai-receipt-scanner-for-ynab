@@ -1,8 +1,11 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/marcosgomesneto/bun-devcontainers/tree/main/src/basic-bun
 {
-    "name": "Bun",
-    "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+    "name": "YNAB Slip Uploader Dev",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
     "features": {
         "ghcr.io/audacioustux/devcontainers/bun:1": {},
         "ghcr.io/devcontainers/features/docker-in-docker:2": {}
@@ -16,5 +19,6 @@
                 "oven.bun-vscode"
             ]
         }
-    }
+    },
+    "workspaceFolder": "/usr/src/app"
 }

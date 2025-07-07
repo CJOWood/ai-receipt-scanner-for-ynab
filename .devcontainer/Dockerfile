@@ -1,11 +1,13 @@
-FROM oven/bun:${templateOption:imageVariant}
+FROM oven/bun:1
+WORKDIR /usr/src/app
 
-# Config Bun
-ENV PATH="~/.bun/bin:${PATH}"
-RUN ln -s /usr/local/bin/bun /usr/local/bin/node
+# Install Git (for both Alpine and Debian/Ubuntu)
+RUN if command -v apk > /dev/null; then apk update && apk add git; else apt-get update && apt-get install -y git; fi
 
-# Update packages
-RUN if [ "${templateOption:imageVariant}" == "alpine" ] ; then apk update ; else apt-get update ; fi
+# Optionally install other dev tools here
 
-# Install Git
-RUN if [ "${templateOption:imageVariant}" == "alpine" ] ; then apk add git ; else apt-get install -y git ; fi
+# Set Bun in PATH
+ENV PATH="/root/.bun/bin:${PATH}"
+
+# Set default user (optional, for VS Code compatibility)
+USER root
