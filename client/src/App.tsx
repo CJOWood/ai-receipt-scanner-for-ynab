@@ -329,6 +329,9 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <Container maxWidth="md" sx={{ mt: 4 }}>
+        <Typography variant="subtitle1" sx={{ textAlign: 'center', mb: 2, letterSpacing: 1, fontWeight: 500, color: 'text.secondary' }}>
+          YNAB Receipt Uploader
+        </Typography>
         <Box
           sx={{
             display: 'flex',
