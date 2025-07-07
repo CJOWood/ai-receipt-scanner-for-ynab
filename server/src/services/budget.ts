@@ -14,22 +14,26 @@ export const getAllEnvelopes = async () => {
   // Use the lighter endpoint
   const categoryGroupsResp = await api.categories.getCategories(budgetId);
   const categoryGroups = categoryGroupsResp.data.category_groups;
-  logger.debug("Fetched category groups", { categoryGroups });
+  logger.debug("Fetched category groups", { length: categoryGroups?.length });
 
   let envelopes: string[] = [];
-  if (!allowedCategories) {
+  if (!allowedCategories || allowedCategories.length === 0) {
+    // No filter: include all non-deleted, non-hidden categories
     envelopes = categoryGroups
-      .map((group) => group.categories?.map((c) => c.name) || [])
-      .flat()
-      .filter((c) => c);
+      .flatMap((group) => group.categories || [])
+      .filter((cat) => !cat.deleted && !cat.hidden)
+      .map((cat) => cat.name)
+      .filter(Boolean);
   } else {
+    // Filter by allowedCategories
     envelopes = categoryGroups
-      .filter((group) => allowedCategories.some((ac) => ac === group.name))
-      .map((group) => group.categories?.map((c) => c.name) || [])
-      .flat()
-      .filter((c) => c);
+      .filter((group) => allowedCategories.includes(group.name))
+      .flatMap((group) => group.categories || [])
+      .filter((cat) => !cat.deleted && !cat.hidden)
+      .map((cat) => cat.name)
+      .filter(Boolean);
   }
-  logger.debug("getAllEnvelopes result", { envelopes });
+  logger.debug("getAllEnvelopes result", { length: envelopes.length });
   if (!envelopes.length) {
     logger.warn("No envelopes found", { budgetId, allowedCategories });
     throw new Error("No envelopes found");
@@ -43,7 +47,7 @@ export const getAllPayees = async () => {
   const payees = payeesResp.data.payees
     ?.filter((p) => p.name && !p.deleted)
     .map((p) => p.name);
-  logger.debug("getAllPayees result", { payees });
+  logger.debug("getAllPayees result", { length: payees.length });
   if (!payees || !payees.length) {
     logger.warn("No payees found", { budgetId });
     throw new Error("No payees found");
@@ -57,7 +61,7 @@ export const getAllAccounts = async () => {
   const accounts = accountsResp.data.accounts
     ?.filter((a) => !a.closed && !a.deleted)
     .map((a) => a.name);
-  logger.debug("getAllAccounts result", { accounts });
+  logger.debug("getAllAccounts result", { length: accounts.length });
   if (!accounts || !accounts.length) {
     logger.warn("No accounts found", { budgetId });
     throw new Error("No accounts found");
@@ -70,7 +74,7 @@ export const getYnabInfo = async () => {
   const categories = await getAllEnvelopes();
   const payees = await getAllPayees();
   const accounts = await getAllAccounts();
-  logger.debug("getYnabInfo result", { categories, payees, accounts });
+  logger.debug("getYnabInfo result", { catLength: categories.length, payeeLength: payees.length, accLength: accounts.length });
   return { categories, payees, accounts };
 };
 

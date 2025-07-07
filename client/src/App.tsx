@@ -26,10 +26,8 @@ const steps = [
 ]
 
 function App() {
-  const [categories, setCategories] = useState<string[]>(() => {
-    const saved = localStorage.getItem('categories')
-    return saved ? JSON.parse(saved) : []
-  })
+  const [allCategories, setAllCategories] = useState<string[]>([])
+  const [category, setCategory] = useState<string | null>(null)
   const [accounts, setAccounts] = useState<string[]>([])
   const [account, setAccount] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
@@ -42,16 +40,13 @@ function App() {
         const res = await fetch(`${SERVER_URL}/ynab-info`)
         const info = await res.json()
         setAccounts(info.accounts || [])
+        setAllCategories(info.categories || [])
       } catch (err) {
         console.error('Error fetching YNAB info', err)
       }
     }
     fetchInfo()
   }, [])
-
-  useEffect(() => {
-    localStorage.setItem('categories', JSON.stringify(categories))
-  }, [categories])
 
   const updateLog = (index: number, message: string) => {
     setLogs((prev) => {
@@ -77,6 +72,10 @@ function App() {
       alert('Please select an account')
       return
     }
+    if (!category) {
+      alert('Please select a category')
+      return
+    }
 
     let ynabInfo: any
     setActiveStep(0)
@@ -94,10 +93,7 @@ function App() {
     try {
       const form = new FormData()
       form.append('file', file)
-      form.append(
-        'categories',
-        JSON.stringify(categories.length ? categories : ynabInfo.categories)
-      )
+      form.append('categories', JSON.stringify([category]))
       form.append('payees', JSON.stringify(ynabInfo.payees))
       const parseRes = await fetch(`${SERVER_URL}/parse-receipt`, {
         method: 'POST',
@@ -153,15 +149,13 @@ function App() {
           sx={{ mb: 2 }}
         />
         <Autocomplete
-          freeSolo
-          options={categories}
-          value={categories[0] || null}
-          onChange={(_, value) =>
-            setCategories(value ? [value] : [])
-          }
+          options={allCategories}
+          value={category}
+          onChange={(_, value) => setCategory(value)}
           renderInput={(params) => (
-            <TextField {...params} label="Category" placeholder="Add category" />
+            <TextField {...params} label="Category" placeholder="Select category" />
           )}
+          sx={{ mb: 2 }}
         />
 
         <Box sx={{ mt: 2 }}>
