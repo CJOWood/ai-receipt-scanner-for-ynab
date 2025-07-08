@@ -32,8 +32,6 @@ import IconButton from '@mui/material/IconButton'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
 
-const SERVER_URL = import.meta.env.APP_SERVER_URL || 'http://localhost:3000'
-
 const theme = createTheme({ palette: { mode: 'dark' } })
 const steps = [
   'Get YNAB Data',
@@ -107,7 +105,7 @@ function App() {
   useEffect(() => {
     const fetchInfo = async () => {
       try {
-        const res = await fetch(`${SERVER_URL}/ynab-info`)
+        const res = await fetch(`/api/ynab-info`)
         const info = await res.json()
         setAccounts(info.accounts || [])
         setAllCategories(info.categories || [])
@@ -238,7 +236,7 @@ function App() {
     let ynabInfo: { categories: string[], payees: string[], accounts: string[] }
     setActiveStep(0)
     try {
-      const res = await fetch(`${SERVER_URL}/ynab-info`)
+      const res = await fetch(`/api/ynab-info`)
       if (!res.ok) {
         const errorData = await res.json()
         throw new Error(errorData.error || `HTTP ${res.status}`)
@@ -259,7 +257,7 @@ function App() {
       form.append('categories', JSON.stringify(category ? [category] : ynabInfo.categories))
       form.append('payees', JSON.stringify(ynabInfo.payees))
       
-      const parseRes = await fetch(`${SERVER_URL}/parse-receipt`, {
+      const parseRes = await fetch(`/api/parse-receipt`, {
         method: 'POST',
         body: form,
       })
@@ -301,7 +299,7 @@ ${lineItemsText}`)
     // Step 4: Create YNAB Transaction
     setActiveStep(3)
     try {
-      const createRes = await fetch(`${SERVER_URL}/create-transaction`, {
+      const createRes = await fetch(`/api/create-transaction`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ account, receipt }),
@@ -379,7 +377,7 @@ ${lineItemsText}`)
       upload.append('transactionDate', receipt.transactionDate)
       upload.append('file', fileToProcess instanceof Blob ? fileToProcess : file)
       
-      const uploadRes = await fetch(`${SERVER_URL}/upload-file`, { 
+      const uploadRes = await fetch(`/api/upload-file`, { 
         method: 'POST', 
         body: upload 
       })

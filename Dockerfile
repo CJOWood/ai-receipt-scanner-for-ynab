@@ -9,15 +9,12 @@ COPY package.json bun.lockb server/package.json shared/package.json client/packa
 WORKDIR /temp/prod
 RUN bun install --frozen-lockfile --production
 
-# Build shared, server, and client
+# Build for single origin
 FROM base AS build
 WORKDIR /usr/src/app
 COPY --from=install /temp/prod/node_modules node_modules
 COPY . .
-RUN bun run build:shared && bun run build:server && bun run build:client
-
-# Copy frontend build to server/public
-RUN mkdir -p server/public && cp -r client/dist/* server/public/
+RUN bun run build:single
 
 # Final image
 FROM oven/bun:1 AS release
@@ -25,4 +22,4 @@ WORKDIR /usr/src/app
 COPY --from=build /usr/src/app .
 ENV NODE_ENV=production
 USER bun
-ENTRYPOINT [ "bun", "run", "server/src/index.ts" ]
+ENTRYPOINT [ "bun", "run", "start:single" ]

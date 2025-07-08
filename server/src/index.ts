@@ -13,10 +13,7 @@ import { serveStatic } from 'hono/bun';
 const app = new Hono();
 app.use(cors())
 
-// Serve static files for frontend
-app.use('/*', serveStatic({ root: './server/public', rewriteRequestPath: (path) => path === '/' ? '/index.html' : path }));
-
-app.get("/ynab-info", async (c) => {
+app.get("/api/ynab-info", async (c) => {
   try {
     const info = await getYnabInfo();
     logger.info("Fetched YNAB info");
@@ -28,7 +25,7 @@ app.get("/ynab-info", async (c) => {
 });
 
 app.post(
-  "/parse-receipt",
+  "/api/parse-receipt",
   zValidator(
     "form",
     z.object({
@@ -68,7 +65,7 @@ app.post(
 );
 
 app.post(
-  "/create-transaction",
+  "/api/create-transaction",
   zValidator(
     "json",
     z.object({
@@ -99,7 +96,7 @@ app.post(
 );
 
 app.post(
-  "/upload-file",
+  "/api/upload-file",
   zValidator(
     "form",
     z.object({
@@ -131,7 +128,7 @@ app.post(
 );
 
 app.post(
-  "/upload",
+  "/api/upload",
   zValidator(
     "form",
     z.object({
@@ -170,11 +167,11 @@ app.post(
   }
 );
 
-app.get("/healthz", async (c) => {
+app.get("/api/healthz", async (c) => {
   return c.text("OK", 200);
 });
 
-app.get('/hello', async (c) => {
+app.get('/api/hello', async (c) => {
   const data: ApiResponse = {
     message: "Hello BHVR!",
     success: true
@@ -182,6 +179,12 @@ app.get('/hello', async (c) => {
 
   return c.json(data, { status: 200 })
 })
+
+// Serve static files for everything else
+app.use("*", serveStatic({ root: "./static" }));
+app.get("*", async (c, next) => {
+  return serveStatic({ root: "./static", path: "index.html" })(c, next);
+});
 
 export default {
   port: env.APP_PORT,

@@ -18,6 +18,12 @@ export default defineConfig({
       host: "localhost",
       protocol: "ws",  // use "wss" if using HTTPS
       clientPort: 5173 // ensure client uses same port
-    }
+    },
+    proxy: {
+      "/api": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+      },
+    },
   }
 })
