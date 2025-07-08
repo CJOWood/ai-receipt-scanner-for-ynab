@@ -1,25 +1,20 @@
-# Use Bun as the base image
-FROM oven/bun:1 AS base
-WORKDIR /usr/src/app
+FROM oven/bun:latest
+WORKDIR /app
+
+# Copy package files
+COPY package.json bun.lockb ./
+COPY client/package.json ./client/
+COPY server/package.json ./server/
+COPY shared/package.json ./shared/
+
+# Copy source code
+COPY . .
 
 # Install dependencies
-FROM base AS install
-RUN mkdir -p /temp/prod
-COPY package.json bun.lockb server/package.json shared/package.json client/package.json /temp/prod/
-WORKDIR /temp/prod
-RUN bun install --frozen-lockfile --production
+RUN bun install
 
 # Build for single origin
-FROM base AS build
-WORKDIR /usr/src/app
-COPY --from=install /temp/prod/node_modules node_modules
-COPY . .
 RUN bun run build:single
 
-# Final image
-FROM oven/bun:1 AS release
-WORKDIR /usr/src/app
-COPY --from=build /usr/src/app .
-ENV NODE_ENV=production
-USER bun
-ENTRYPOINT [ "bun", "run", "start:single" ]
+EXPOSE 3000
+CMD ["bun", "run", "start:single"]
