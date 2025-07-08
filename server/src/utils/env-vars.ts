@@ -16,7 +16,7 @@ const envScheme = z.object({
   APP_PORT: z
     .string()
     .optional()
-    .transform((str) => (str && parseInt(str)) || 3000),
+    .transform((str) => (str && parseInt(str)) || parseInt(process.env.PORT || "3000")),
   APP_API_KEY: z.string().nonempty(),
   APP_API_SECRET: z.string().nonempty(),
   APP_TRUSTED_IPS: z

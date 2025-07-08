@@ -16,5 +16,9 @@ RUN bun install
 # Build for single origin
 RUN bun run build:single
 
+# Set production environment
+ENV NODE_ENV=production
+ENV PORT=3000
+
 EXPOSE 3000
 CMD ["bun", "run", "start:single"]
