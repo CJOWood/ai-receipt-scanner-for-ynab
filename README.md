@@ -1,154 +1,261 @@
-# YNAB Slip Uploader
+# YNAB AI Receipt Scanner
 
-A service that processes receipt images using Google's Gemini AI and automatically creates transactions in YNAB (You Need A Budget).
+A robust, AI-powered service that processes receipt images and PDFs using Google's Gemini AI, then automatically creates detailed transactions in YNAB (You Need A Budget). Designed for efficiency, privacy, and seamless budgeting.
 
-## Features
+---
 
-- Processes receipt images (JPEG, PNG, WebP) and PDFs
-- Uses Gemini AI to extract transaction details
-- Automatically categorizes line items and overall transactions
-- Creates transactions in YNAB with proper categorization
+## 🚀 Features
+
+- **Web browser frontend with detailed, step-by-step user feedback** — visualize upload, parsing, AI, and YNAB sync status with clear error/success logs, far surpassing the original CLI-only or “no front-end” versions
+- Upload and process receipt images (JPEG, PNG, WebP) or PDFs
+- AI-powered extraction of transaction details including line items **and taxes**
+- Automatic categorization of line items and transactions using your YNAB categories
 - Supports split transactions for line items
-- Basic auth protection for API endpoints
-- Built-in cropping interface with automatic crop suggestion
-- Rotate images before upload
+- API endpoints for your own use
+- Built-in cropping interface
+- Flexible storage: save receipts locally or to S3
+- Fully open source, MIT licensed
 
-## Repository Structure
+---
 
-This project now follows the [bhvr](https://github.com/stevedylandev/bhvr) monorepo layout.
+## ⚡ Quick Start
 
-```
-.
-├── server/        # Hono backend
-├── shared/        # Shared TypeScript definitions
-└── package.json   # Root workspace configuration
-```
+### Docker
 
-## Quick Start
-
-You can quickly get up and running by running the container in Docker.
-
-### Prerequisites
-
-You will need the following before you can run the container:
-
-- [Google Gemini AI API key](https://aistudio.google.com/app/apikey)
-- [YNAB API key](https://app.ynab.com/settings/developer)
-- [YNAB Budget](https://www.ynab.com/)
-
-### Running the Container
-
-Run the command below to start the container.
+You can get up and running quickly using Docker:
 
 ```shell
 docker run \
     -e APP_API_KEY=your_api_key \
     -e APP_API_SECRET=your_api_secret \
     -e GEMINI_API_KEY=your_gemini_api_key \
-    -e GEMINI_MODEL=gemini-2.0-flash-exp
+    -e GEMINI_MODEL=gemini-2.0-flash-exp \
     -e YNAB_API_KEY=your_ynab_api_key \
     -e YNAB_BUDGET_ID=your_ynab_budget_id \
     -p 3000:3000 \
-    ivankahl/ynab-slip-uploader
+    cjowood/ynab-receipt-uploader:latest
 ```
 
-Replace the `your_gemini_api_key`, `your_ynab_api_key`, and `your_ynab_budget_id` placeholders with your Google Gemini and YNAB API credentials. You should also replace `your_ynab_budget_id` with the ID of your YNAB budget. The application is secured using basic authentication, with `your_api_key` as the username and `your_api_secret` as the password. You can customize which Gemini model should be used with the `GEMINI_MODEL` variable.
+### Docker Compose
 
-Finally, you can provide a comma-separated list of category groups if you want to limit which envelopes should be considered when classifying transactions. Leaving it empty means all envelopes will be used.
+Here’s a sample `docker-compose.yml` to run the service:
 
-### Check it's Running
+```yaml
+version: "3.8"
+services:
+  ynab-ai-receipt-scanner:
+    image: cjowood/ynab-receipt-uploader:latest
+    environment:
+      APP_API_KEY: your_api_key
+      APP_API_SECRET: your_api_secret
+      GEMINI_API_KEY: your_gemini_api_key
+      GEMINI_MODEL: gemini-2.0-flash-exp
+      YNAB_API_KEY: your_ynab_api_key
+      YNAB_BUDGET_ID: your_ynab_budget_id
+      # Add storage/env options as needed
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./receipts:/data # If using local storage
+```
 
-If everything is running, you should get an `OK` response when accessing `/healthz` endpoint.
+---
 
-### Uploading Slip
+## ⚙️ Environment Variables
 
-Send the following cURL request to upload a slip:
+The following environment variables allow you to configure the application:
 
+| Environment Variable            | Required                         | Description                                                                                                                                                                       |
+| ------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY`                | Required                         | Google Gemini API key ([get one](https://aistudio.google.com/app/apikey))                                                                                                          |
+| `GEMINI_MODEL`                  | Required                         | Gemini model variant (minimum 1.5 for structured outputs)                                                                                                                         |
+| `YNAB_API_KEY`                  | Required                         | YNAB Account API Key ([get one](https://app.ynab.com/settings/developer))                                                                                                         |
+| `YNAB_BUDGET_ID`                | Required                         | The ID of your YNAB budget (found in the URL in YNAB)                                                                                                                             |
+| `YNAB_CATEGORY_GROUPS`          | Optional                         | Comma-separated list of category group names to include (all if blank)                                                                                                            |
+| `YNAB_INCLUDE_PAYEES_IN_PROMPT` | Optional                         | If `true`, includes your existing payees for more accurate AI matching (default: true)                                                                                            |
+| `APP_PORT`                      | Optional                         | Port to run on (default: 3000)                                                                                                             |
+| `APP_API_KEY`                   | Required                         | Username for Basic authentication                                                                                                           |
+| `APP_API_SECRET`                | Required                         | Password for Basic authentication                                                                                                           |
+| `APP_TRUSTED_IPS`               | Optional                         | Comma-separated list of IPs/CIDR/ranges that bypass authentication                                                                         |
+| `APP_DISABLE_AUTH`              | Optional                         | Set to `true` to disable authentication                                                                                                    |
+| `MAX_FILE_SIZE`                 | Optional                         | Max upload file size in bytes (default: 5MB)                                                                                               |
+| `FILE_STORAGE`                  | Optional                         | Where to save receipts: `local` or `s3` (if blank, receipts aren't saved)                                                                        |
+| `DATE_SUBDIRECTORIES`           | Optional                         | If `true`, groups receipts in subdirs by date (`2025/01/11/...`). If `false`, all receipts in one dir.                                           |
+| `LOCAL_DIRECTORY`               | Required if `FILE_STORAGE=local` | Local directory to save receipts                                                                                                               |
+| `S3_ACCESS_KEY_ID`              | Required if `FILE_STORAGE=s3`    | AWS Access Key for S3                                                                                                                      |
+| `S3_SECRET_ACCESS_KEY`          | Required if `FILE_STORAGE=s3`    | AWS Secret Key for S3                                                                                                                      |
+| `S3_BUCKET`                     | Required if `FILE_STORAGE=s3`    | S3 bucket name                                                                                                                             |
+| `S3_PATH_PREFIX`                | Optional                         | Path prefix in S3 bucket                                                                                                                   |
+| `S3_ENDPOINT`                   | Required if `FILE_STORAGE=s3`    | S3 endpoint URL                                                                                                                            |
+
+---
+
+## 🛠️ API Endpoints
+
+YNAB receipt Uploader provides a range of API endpoints for integrating with your own tools, scripts, or for advanced use. All endpoints (except `/healthz`) require authentication using the `APP_API_KEY` and `APP_API_SECRET` via HTTP Basic Auth (unless you’ve disabled auth in config).
+
+### Authentication
+
+Send the following HTTP header with your requests (use your API key and secret):
+
+```
+Authorization: Basic <base64(APP_API_KEY:APP_API_SECRET)>
+```
+
+You can generate the header in bash:
+
+```bash
+echo -n "your_api_key:your_api_secret" | base64
+```
+
+---
+
+### Endpoints
+
+#### `GET /healthz`
+
+- **Purpose:** Health check. Returns `OK` if the server is running.
+- **Auth:** None required.
+
+---
+
+#### `GET /api/ynab-info`
+
+- **Purpose:** Fetches available YNAB accounts, categories, and payees for your configured budget.
+- **Returns:** JSON object with arrays of accounts, categories, and payees.
+- **Auth:** Required.
+
+**Example:**
 ```shell
-curl -X POST 'http://localhost:3000/upload' \
-  -H 'Authorization: Basic $(echo -n "YOUR_API_KEY:YOUR_API_SECRET" | base64)' \
-  -F 'account=Bank Cheque Account' \
-  -F 'file=@/path/to/slip.pdf' \
-  --fail
+curl -u your_api_key:your_api_secret http://localhost:3000/api/ynab-info
 ```
 
-If all goes well, you should receive a `200` response with the transaction details in a JSON object like the one below:
+---
 
-```json
-{
-  "category": "Groceries",
-  "memo": "Purchased apples and mangos",
-  "storeName": "Woolworths",
-  "totalAmount": 86.97,
-  "transactionDate": "2024-01-08",
-  "lineItems": [
-    {
+#### `POST /api/parse-receipt`
+
+- **Purpose:** Upload a receipt (image or PDF) and get it parsed by Gemini AI; returns structured transaction details (does not create a YNAB transaction).
+- **Auth:** Required.
+- **Content-Type:** `multipart/form-data`
+- **Body:**
+  - `file` — The receipt image or PDF (required)
+  - `categories` — JSON array of YNAB category names (required)
+  - `payees` — JSON array of YNAB payees (optional)
+
+**Example:**
+```shell
+curl -u your_api_key:your_api_secret \
+     -F "file=@/path/to/receipt.pdf" \
+     -F "categories=[\"Groceries\",\"Dining Out\"]" \
+     -F "payees=[\"Woolworths\",\"Coles\"]" \
+     http://localhost:3000/api/parse-receipt
+```
+
+---
+
+#### `POST /api/create-transaction`
+
+- **Purpose:** Create a YNAB transaction using the AI-parsed receipt data.
+- **Auth:** Required.
+- **Content-Type:** `application/json`
+- **Body:**  
+  ```json
+  {
+    "account": "Bank Cheque Account",
+    "receipt": {
+      "merchant": "Woolworths",
+      "transactionDate": "2024-01-08",
+      "memo": "Purchased apples",
+      "totalAmount": 86.97,
       "category": "Groceries",
-      "lineItemTotalAmount": 11.99,
-      "productName": "Apples",
-      "quantity": 1
-    },
-    {
-      "category": "Groceries",
-      "lineItemTotalAmount": 49.99,
-      "productName": "Box of Mangos",
-      "quantity": 1
+      "lineItems": [
+        { "category": "Groceries", "lineItemTotalAmount": 11.99, "productName": "Apples", "quantity": 1 }
+      ]
     }
-  ]
-}
-```
+  }
+  ```
 
-## Environment Variables
-
-The following environment variables let you configure the application:
-
-| Environment Variable            | Required                         | Description                                                                                                                                                                                                                                                                                           |
-| ------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GEMINI_API_KEY`                | Required                         | Your Google Gemini API key which you can generate [here](https://aistudio.google.com/app/apikey).                                                                                                                                                                                                     |
-| `GEMINI_MODEL`                  | Required                         | The [Gemini model variant](https://ai.google.dev/gemini-api/docs/models/gemini) you want to use. Minimum required variant is Gemini 1.5 and up as these support structured outputs.                                                                                                                   |
-| `YNAB_API_KEY`                  | Required                         | Your YNAB Account API Key which y can generate [here](https://app.ynab.com/settings/developer).                                                                                                                                                                                                       |
-| `YNAB_BUDGET_ID`                | Required                         | The ID of your YNAB budget. You'll find this in the URL when viewing your budget on YNAB.                                                                                                                                                                                                             |
-| `YNAB_CATEGORY_GROUPS`          | Optional                         | A comma-separated list of category group names that should be considered when categorizing the transaction. If left blank, all categories will be used.                                                                                                                                               |
-| `YNAB_INCLUDE_PAYEES_IN_PROMPT` | Optional                         | Specifies whether you want to include a list of your existing payees to be sent to Gemini. Can be `true` or `false`.                                                                                                                                                                                                            |
-| `APP_PORT`                      | Optional                         | Port that the application should run on. Will default to `3000` if not specified.                                                                                                                                                                                                                     |
-| `APP_API_KEY`                   | Required                         | The service uses Basic authentication to secure the `/upload` endpoint. This environment variable is the username.                                                                                                                                                                                    |
-| `APP_API_SECRET`                | Required                         | The service uses Basic authentication to secure the `/upload` endpoint. This environment variable is the password.                                                                                                                                                                                    |
-| `APP_TRUSTED_IPS` | Optional | A comma-separated list of client IP addresses, IP ranges (`start-end`) or CIDR blocks that should bypass Basic authentication.
-| `APP_DISABLE_AUTH` | Optional | Set to `true` to disable authentication entirely.
-| `MAX_FILE_SIZE`                 | Optional                         | The maximum upload file size if bytes. Defaults to 5MB if not specified.                                                                                                                                                                                                                              |
-| `FILE_STORAGE`                  | Optional                         | Configure where you want to save slips to: `s3` or `local`. If not specified, slips won't be saved.                                                                                                                                                                                                   |
-| `DATE_SUBDIRECTORES`            | Optional                         | Configure whether to use the transaction date to group slips in sub-directories.<br/><br/>If `false`, files will be stored in a single directory with name: `2025-01-11_merchant_12343452345.pdf`.<br/><br/>If `true`, files will be stored in subdirectories: `2025/01/11/merchant_12343452345.pdf`. |
-| `LOCAL_DIRECTORY`               | Required if `FILE_STORAGE=local` | Configure where files should be stored if using local storage.                                                                                                                                                                                                                                        |
-| `S3_ACCESS_KEY_ID`              | Required if `FILE_STORAGE=s3`    | Configure the access key if using S3 to store slips.                                                                                                                                                                                                                                                  |
-| `S3_SECRET_ACCESS_KEY`          | Required if `FILE_STORAGE=s3`    | Configure the secret access key if using S3 to store slips.                                                                                                                                                                                                                                           |
-| `S3_BUCKET`                     | Required if `FILE_STORAGE=s3`    | Configure the bucket to save slips to if using S3.                                                                                                                                                                                                                                                    |
-| `S3_PATH_PREFIX`                | Optional                         | Define a path prefix to use when saving slips to S3. Will default to bucket root if none is specified.                                                                                                                                                                                                |
-| `S3_ENDPOINT`                   | Required if `FILE_STORAGE=s3`    | Configure the S3 endpoint to use save slips to S3.                                                                                                                                                                                                                                                    |
-
-## Contributing
-
-If you think something's missing or want to find a bug, please feel free to fork this repository and create a pull request with your changes.
-
-### Cloning and Running the Project
-
-If you'd like to contribute, you'll need to install the latest version of [Bun](https://bun.sh/).
-
-Once installed, clone the repository and install the dependencies:
-
+**Example:**
 ```shell
-bun install
+curl -u your_api_key:your_api_secret \
+     -H "Content-Type: application/json" \
+     -d @payload.json \
+     http://localhost:3000/api/create-transaction
 ```
 
-Copy the `.env.example` file and replace the placeholders with your own files.
+---
 
-Then, run the application using the following command:
+#### `POST /api/upload-file`
 
+- **Purpose:** Save the original receipt file to your configured storage (local or S3).
+- **Auth:** Required.
+- **Content-Type:** `multipart/form-data`
+- **Body:**
+  - `merchant` — Merchant/store name (required)
+  - `transactionDate` — Transaction date (required)
+  - `file` — The receipt image or PDF (required)
+
+**Example:**
 ```shell
-bun run index.ts
+curl -u your_api_key:your_api_secret \
+     -F "merchant=Woolworths" \
+     -F "transactionDate=2024-01-08" \
+     -F "file=@/path/to/receipt.pdf" \
+     http://localhost:3000/api/upload-file
 ```
 
-Make your changes, push them and create a pull request.
+---
 
-## License
+### Typical Workflow
+
+1. Call `/api/ynab-info` to get categories/accounts/payees.
+2. Call `/api/parse-receipt` to extract transaction details from a receipt.
+3. Call `/api/create-transaction` to create the transaction in YNAB.
+4. Optionally, call `/api/upload-file` to save the original file to storage.
+
+The browser UI automates this flow, but you can use the endpoints directly for scripting or integration.
+
+---
+
+---
+
+## 🤝 Contributing
+
+Your contributions are welcome! To get started:
+
+1. Install [Bun](https://bun.sh/)
+2. Fork and clone this repo
+3. Install dependencies:
+
+    ```shell
+    bun install
+    ```
+
+4. Copy `.env.example` to `.env` and fill in your values
+5. Run the app:
+
+    ```shell
+    bun run index.ts
+    ```
+
+6. Make your changes, push, and open a pull request!
+
+---
+
+## 📁 Repository Structure
+
+This repo follows the [bhvr](https://github.com/stevedylandev/bhvr) monorepo layout:
+
+```
+.
+├── server/        # Hono backend (API, processing, storage)
+├── shared/        # Shared TypeScript definitions
+├── client/        # React + TypeScript + Vite client (browser UI)
+└── package.json   # Root workspace configuration
+```
+
+---
+
+## 📄 License
 
 This repository is distributed under the [MIT License](LICENSE.md).
