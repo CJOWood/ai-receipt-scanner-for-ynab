@@ -1,7 +1,7 @@
 import type { Receipt } from 'shared'
 
 export function generateProcessingFeedback(receipt: Receipt): string {
-  let feedback = '✓ Data validated and ready for YNAB import'
+  let feedback = '';
 
   // Add tax processing info
   if (receipt.totalTaxes && receipt.totalTaxes > 0) {
