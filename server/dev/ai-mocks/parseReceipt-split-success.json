@@ -1,0 +1,25 @@
+{
+  "splitInfo": {
+    "attempted": true,
+    "successful": true,
+    "splitCount": 2,
+    "taxDistributed": 1.50,
+    "adjustmentApplied": 0.00,
+    "adjustmentType": null,
+    "detailedBreakdown": {
+      "originalSplitTotal": 18.50,
+      "taxAmount": 1.50,
+      "finalAdjustment": 0.00
+    }
+  },
+  "merchant": "SuperMart",
+  "transactionDate": "2025-07-08",
+  "totalAmount": 20.00,
+  "totalTaxes": 1.50,
+  "category": "Groceries",
+  "memo": "Split groceries and snacks",
+  "lineItems": [
+    { "productName": "Apples", "lineItemTotalAmount": 10.00, "category": "Groceries", "quantity": 2 },
+    { "productName": "Chips", "lineItemTotalAmount": 8.50, "category": "Snacks", "quantity": 1 }
+  ]
+}

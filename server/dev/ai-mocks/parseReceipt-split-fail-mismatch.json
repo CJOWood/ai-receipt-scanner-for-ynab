@@ -1,0 +1,19 @@
+{
+  "splitInfo": {
+    "attempted": true,
+    "successful": false,
+    "reason": "Split total does not match receipt total",
+    "expectedAmount": 25.00,
+    "totalSplitAmount": 24.00
+  },
+  "merchant": "BigBox",
+  "transactionDate": "2025-07-08",
+  "totalAmount": 25.00,
+  "totalTaxes": 2.00,
+  "category": "Household",
+  "memo": "Failed split: mismatch",
+  "lineItems": [
+    { "productName": "Detergent", "lineItemTotalAmount": 12.00, "category": "Cleaning", "quantity": 1 },
+    { "productName": "Paper Towels", "lineItemTotalAmount": 12.00, "category": "Paper Goods", "quantity": 2 }
+  ]
+}

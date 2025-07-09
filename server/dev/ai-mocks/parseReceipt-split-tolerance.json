@@ -1,0 +1,26 @@
+{
+  "splitInfo": {
+    "attempted": true,
+    "successful": true,
+    "splitCount": 3,
+    "taxDistributed": 0.00,
+    "adjustmentApplied": -0.05,
+    "adjustmentType": "tolerance",
+    "detailedBreakdown": {
+      "originalSplitTotal": 29.95,
+      "taxAmount": 0.00,
+      "finalAdjustment": -0.05
+    }
+  },
+  "merchant": "ElectroShop",
+  "transactionDate": "2025-07-08",
+  "totalAmount": 29.90,
+  "totalTaxes": 0.00,
+  "category": "Electronics",
+  "memo": "Tolerance adjustment applied",
+  "lineItems": [
+    { "productName": "USB Cable", "lineItemTotalAmount": 9.99, "category": "Accessories", "quantity": 1 },
+    { "productName": "Mouse Pad", "lineItemTotalAmount": 9.98, "category": "Accessories", "quantity": 1 },
+    { "productName": "HDMI Adapter", "lineItemTotalAmount": 9.98, "category": "Adapters", "quantity": 1 }
+  ]
+}

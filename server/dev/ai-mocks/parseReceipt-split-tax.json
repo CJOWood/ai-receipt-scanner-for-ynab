@@ -1,0 +1,25 @@
+{
+  "splitInfo": {
+    "attempted": true,
+    "successful": true,
+    "splitCount": 2,
+    "taxDistributed": 0.80,
+    "adjustmentApplied": 0.00,
+    "adjustmentType": null,
+    "detailedBreakdown": {
+      "originalSplitTotal": 15.20,
+      "taxAmount": 0.80,
+      "finalAdjustment": 0.00
+    }
+  },
+  "merchant": "Bookstore",
+  "transactionDate": "2025-07-08",
+  "totalAmount": 16.00,
+  "totalTaxes": 0.80,
+  "category": "Books",
+  "memo": "Tax distributed split",
+  "lineItems": [
+    { "productName": "Notebook", "lineItemTotalAmount": 7.60, "category": "Stationery", "quantity": 1 },
+    { "productName": "Pen Set", "lineItemTotalAmount": 7.60, "category": "Stationery", "quantity": 1 }
+  ]
+}

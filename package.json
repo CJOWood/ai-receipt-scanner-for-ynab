@@ -2,33 +2,28 @@
   "name": "ynab-slip-uploader",
   "version": "0.0.1",
   "workspaces": ["./server", "./client", "./shared"],
-	"scripts": {
-		"dev:client": "cd client && bun run dev",
-		"dev:server": "cd server && bun run dev",
-		"dev:server:mock-ai": "cd server && USE_MOCK_AI=true bun run dev",
-		"dev:server:mock-ai:singlecat": "cd server && USE_MOCK_AI=true MOCK_AI_RECEIPT_FILE=parseReceipt-ikea-single-category.json bun run dev",
-		"dev:server:mock-ai:multicat": "cd server && USE_MOCK_AI=true MOCK_AI_RECEIPT_FILE=parseReceipt-multicat-split.json bun run dev",
-		"dev:server:mock-ai:tax-mismatch": "cd server && USE_MOCK_AI=true MOCK_AI_RECEIPT_FILE=parseReceipt-tax-mismatch.json bun run dev",
-		"dev:server:mock-ai:missing-category": "cd server && USE_MOCK_AI=true MOCK_AI_RECEIPT_FILE=parseReceipt-missing-category.json bun run dev",
-		"dev:shared": "cd shared && bun run dev",
-		"dev": "concurrently \"bun run dev:shared\" \"bun run dev:server\" \"bun run dev:client\"",
-		"build:client": "cd client && bun run build",
-		"build:shared": "cd shared && bun run build",
-		"build:server": "cd server && bun run build",
-		"build": "bun run build:shared && bun run build:server && bun run build:client",
-		"build:single": "bun run build && bun run copy:static && bun run build:server",
-		"start:single": "cd server && bun run dist/index.js",
-		"copy:static": "rm -rf server/static && cp -r client/dist server/static",
-		"postinstall": "bun run build:shared && bun run build:server",
-		"dev:mock-ai:singlecat": "concurrently \"bun run dev:shared\" \"bun run dev:server:mock-ai:singlecat\" \"bun run dev:client\"",
-		"dev:mock-ai:multicat": "concurrently \"bun run dev:shared\" \"bun run dev:server:mock-ai:multicat\" \"bun run dev:client\"",
-		"dev:mock-ai:tax-mismatch": "concurrently \"bun run dev:shared\" \"bun run dev:server:mock-ai:tax-mismatch\" \"bun run dev:client\"",
-		"dev:mock-ai:missing-category": "concurrently \"bun run dev:shared\" \"bun run dev:server:mock-ai:missing-category\" \"bun run dev:client\""
-	},
-	"keywords": ["bun", "hono", "react", "vite", "monorepo"],
+  "scripts": {
+    "dev:client": "cd client && bun run dev",
+    "dev:server": "cd server && bun run dev",
+    "dev:server:mock-ai": "cd server && cross-env USE_MOCK_AI=true MOCK_AI_RECEIPT_FILE=%FILE% bun run dev",
+    "dev:client:mock-ai": "cd client && cross-env VITE_MOCK_AI=true bun run dev --",
+    "dev:mock-ai": "concurrently \"bun run dev:shared\" \"bun run dev:server:mock-ai\" \"bun run dev:client:mock-ai\"",
+    "dev:shared": "cd shared && bun run dev",
+    "dev": "concurrently \"bun run dev:shared\" \"bun run dev:server\" \"bun run dev:client\"",
+    "build:client": "cd client && bun run build",
+    "build:shared": "cd shared && bun run build",
+    "build:server": "cd server && bun run build",
+    "build": "bun run build:shared && bun run build:server && bun run build:client",
+    "build:single": "bun run build && bun run copy:static && bun run build:server",
+    "start:single": "cd server && bun run dist/index.js",
+    "copy:static": "rm -rf server/static && cp -r client/dist server/static",
+    "postinstall": "bun run build:shared && bun run build:server"
+  },
+  "keywords": ["bun", "hono", "react", "vite", "monorepo"],
   "devDependencies": {
     "bun-types": "latest",
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3"
   },
   "peerDependencies": {
     "typescript": "^5.8.3"
