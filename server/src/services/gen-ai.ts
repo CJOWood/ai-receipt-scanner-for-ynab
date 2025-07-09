@@ -16,7 +16,7 @@ const model = genAI.getGenerativeModel({
 });
 
 const USE_MOCK_AI = Boolean(env.USE_MOCK_AI);
-const MOCK_AI_RECEIPT_FILE = env.MOCK_AI_RECEIPT_FILE || "parseReceipt-ikea-single-category.json";
+const MOCK_AI_RECEIPT_FILE = process.env.FILE || "parseReceipt-ikea-single-category.json";
 const MOCKS_DIR = path.resolve(__dirname, "../../dev/ai-mocks");
 
 const getGeneratingConfig = (
