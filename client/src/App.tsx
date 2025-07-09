@@ -8,9 +8,9 @@ import {
 import { ReceiptStepper } from './ReceiptStepper'
 import type { Receipt } from 'shared'
 import { ReceiptForm } from './ReceiptForm'
-import { suggestReceiptCrop, cropImageFromPixels } from './utils/imageUtils'
 import { generateProcessingFeedback } from './utils/generateProcessingFeedback'
 import { buildSplitFeedback } from './utils/buildSplitFeedback'
+import { cropImageFromPixels } from './utils/imageUtils'
 
 const theme = createTheme({ palette: { mode: 'dark' } })
 const steps = [
@@ -38,6 +38,7 @@ function App() {
   const [showCrop, setShowCrop] = useState(false)
   const [crop, setCrop] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
+  const [rotation, setRotation] = useState(0)
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
   const [croppedUrl, setCroppedUrl] = useState<string | null>(null)
   const [analyzedReceipt, setAnalyzedReceipt] = useState<Receipt | null>(null)
@@ -111,19 +112,9 @@ function App() {
         const url = URL.createObjectURL(fileObj)
         setPreviewUrl(url)
         setCroppedUrl(null)
+        setRotation(0)
         setShowCrop(true)
         
-        // Try to suggest a crop area
-        try {
-          const suggestion = await suggestReceiptCrop(url)
-          if (suggestion) {
-            // Apply suggested crop as initial position
-            setCrop({ x: suggestion.x, y: suggestion.y })
-            setZoom(1)
-          }
-        } catch (error) {
-          console.warn('Could not suggest crop area:', error)
-        }
       } else {
         setPreviewUrl(null)
         setCroppedUrl(null)
@@ -158,6 +149,11 @@ function App() {
     setCroppedUrl(null)
   }
 
+  // Called when user rotates the image
+  const handleRotate = () => {
+    setRotation((prev) => (prev + 90) % 360)
+  }
+
   const processReceipt = async () => {
     if (!file) {
       alert('Please select a receipt image')
@@ -181,7 +177,7 @@ function App() {
       markStepError(0, '✗ Failed to fetch YNAB data: Not loaded')
       return
     }
-    markStepSuccess(0, `Fetched ${allCategories.length} categories, ${allPayees.length} payees, and ${accounts.length} accounts from YNAB`)
+    markStepSuccess(0, `${allCategories.length} categories, ${allPayees.length} payees, and ${accounts.length} accounts from YNAB`)
 
     // Step 2: Analyze Receipt
     let receipt: Receipt
@@ -345,10 +341,13 @@ ${lineItemsText}`)
             setCrop={setCrop}
             zoom={zoom}
             setZoom={setZoom}
+            rotation={rotation}
+            setRotation={setRotation}
             setCroppedAreaPixels={setCroppedAreaPixels}
             handleFileChange={handleFileChange}
             handleCropConfirm={handleCropConfirm}
             handleCropSkip={handleCropSkip}
+            handleRotate={handleRotate}
             processReceipt={processReceipt}
             resetSteps={resetSteps}
             activeStep={activeStep}

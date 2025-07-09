@@ -4,10 +4,12 @@ import {
   Box,
   Button,
   TextField,
+  IconButton,
 } from '@mui/material'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import InsertPhotoIcon from '@mui/icons-material/InsertPhoto'
+import RotateRightIcon from '@mui/icons-material/RotateRight'
 import Cropper from 'react-easy-crop'
 
 interface Props {
@@ -30,6 +32,9 @@ interface Props {
   setCrop: (crop: { x: number; y: number }) => void
   zoom: number
   setZoom: (zoom: number) => void
+  rotation: number
+  setRotation: (rotation: number) => void
+  handleRotate: () => void
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   handleCropConfirm: () => void
   handleCropSkip: () => void
@@ -64,6 +69,9 @@ export function ReceiptForm({
   setCrop,
   zoom,
   setZoom,
+  rotation,
+  setRotation,
+  handleRotate,
   handleFileChange,
   handleCropConfirm,
   handleCropSkip,
@@ -129,6 +137,7 @@ export function ReceiptForm({
           startIcon={<PhotoCameraIcon />}
           onClick={() => setFileTouched(true)}
           sx={{ minWidth: 150 }}
+          disabled={activeStep >= 0}
         >
           Take Photo
           <input
@@ -144,7 +153,7 @@ export function ReceiptForm({
         <Box
           sx={{
             width: '100%',
-            height: 200,
+            height: 300,
             border: '1px solid #555',
             borderRadius: 2,
             display: 'flex',
@@ -161,15 +170,30 @@ export function ReceiptForm({
                 image={previewUrl}
                 crop={crop}
                 zoom={zoom}
+                rotation={rotation}
                 aspect={3 / 4}
                 cropShape="rect"
                 showGrid={true}
+                restrictPosition={false}
                 onCropChange={setCrop}
                 onZoomChange={setZoom}
                 onCropComplete={(_, croppedAreaPixels) => {
                   setCroppedAreaPixels(croppedAreaPixels)
                 }}
               />
+              <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }}>
+                <IconButton
+                  size="small"
+                  onClick={handleRotate}
+                  sx={{ 
+                    backgroundColor: 'rgba(0, 0, 0, 0.6)', 
+                    color: 'white',
+                    '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.8)' }
+                  }}
+                >
+                  <RotateRightIcon />
+                </IconButton>
+              </Box>
               <Box sx={{ position: 'absolute', bottom: 8, left: 8, zIndex: 10 }}>
                 <Button
                   size="small"
@@ -181,7 +205,7 @@ export function ReceiptForm({
                 </Button>
                 <Button
                   size="small"
-                  variant="outlined"
+                  variant="contained"
                   onClick={handleCropSkip}
                 >
                   Skip
@@ -220,7 +244,7 @@ export function ReceiptForm({
           startIcon={<ReceiptLongIcon />}
           disabled={!account || !file || activeStep >= 0}
         >
-          Process Receipt
+          Process
         </Button>
         {(activeStep >= stepsLength || stepErrors.some(Boolean)) && (
           <Button
@@ -231,10 +255,11 @@ export function ReceiptForm({
               setPreviewUrl(null)
               setCroppedUrl(null)
               setShowCrop(false)
+              setRotation(0)
             }}
             sx={{ ml: 2 }}
           >
-            Process Another Receipt
+            Process Another
           </Button>
         )}
       </Box>
