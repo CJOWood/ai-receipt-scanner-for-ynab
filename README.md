@@ -1,4 +1,4 @@
-# YNAB AI Receipt Scanner
+# AI Receipt Scanner for YNAB
 
 A robust, AI-powered service that processes receipt images and PDFs using Google's Gemini AI, then automatically creates detailed transactions in YNAB (You Need A Budget). Designed for efficiency, privacy, and seamless budgeting.
 
