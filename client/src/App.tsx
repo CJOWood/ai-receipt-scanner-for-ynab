@@ -228,7 +228,7 @@ ${lineItemsText}`)
     // Step 4: Create YNAB Transaction
     setActiveStep(3)
     if (isMockAI) {
-      markStepSuccess(3, '✓ Skipped YNAB transaction creation (mock AI mode)')
+      markStepSuccess(3, 'Skipped YNAB transaction creation (mock AI mode)')
     } else {
       try {
         const createRes = await fetch(`/api/create-transaction`, {
@@ -243,20 +243,19 @@ ${lineItemsText}`)
         }
         
         const transactionResult = await createRes.json()
-        
+
         // Build split transaction feedback
         const splitFeedback = buildSplitFeedback(transactionResult.splitInfo, receipt)
 
         // Build date adjustment feedback
         let dateFeedback = ''
         if (transactionResult.dateAdjustment) {
-          dateFeedback = `\n• ⚠️ Date adjusted: ${transactionResult.dateAdjustment.reason}`
-          dateFeedback += `\n• Original: ${transactionResult.dateAdjustment.originalDate}, Used: ${transactionResult.dateAdjustment.adjustedDate}`
+          dateFeedback = `\n• ⚠️ Date adjusted: ${transactionResult.dateAdjustment.reason}.`
+          dateFeedback += ` Used: ${transactionResult.dateAdjustment.adjustedDate} instead.`
         }
         
-        markStepSuccess(3, `• Account: ${account}
-• Amount: $${receipt.totalAmount.toFixed(2)}
-• Payee: ${receipt.merchant}${splitFeedback}${dateFeedback}`)
+        markStepSuccess(3, `${splitFeedback}
+          ${dateFeedback}`)
       } catch (err: unknown) {
         markStepError(3, `✗ Failed to create YNAB transaction: ${err instanceof Error ? err.message : 'Unknown error'}`)
         return

@@ -97,7 +97,7 @@ export const parseReceipt = async (
   availableEnvelopes: string[],
   existingPayees: string[] | null = null
 ): Promise<Receipt | null> => {
-  logger.debug("parseReceipt called", { mimeType, availableEnvelopes, existingPayees });
+  logger.debug("parseReceipt called");
   if (USE_MOCK_AI) {
     try {
       const mockPath = path.join(MOCKS_DIR, MOCK_AI_RECEIPT_FILE);
