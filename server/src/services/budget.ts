@@ -9,36 +9,36 @@ const allowedCategories: string[] = env.YNAB_CATEGORY_GROUPS;
 
 const api = new ynab.API(apiKey);
 
-export const getAllEnvelopes = async () => {
-  logger.debug("getAllEnvelopes called", { budgetId, allowedCategories });
+export const getAllCategories = async () => {
+  logger.debug("getAllCategories called", { budgetId, allowedCategories });
   // Use the lighter endpoint
   const categoryGroupsResp = await api.categories.getCategories(budgetId);
   const categoryGroups = categoryGroupsResp.data.category_groups;
   logger.debug("Fetched category groups", { length: categoryGroups?.length });
 
-  let envelopes: string[] = [];
+  let categories: string[] = [];
   if (!allowedCategories || allowedCategories.length === 0) {
     // No filter: include all non-deleted, non-hidden categories
-    envelopes = categoryGroups
+    categories = categoryGroups
       .flatMap((group) => group.categories || [])
       .filter((cat) => !cat.deleted && !cat.hidden)
       .map((cat) => cat.name)
       .filter(Boolean);
   } else {
     // Filter by allowedCategories
-    envelopes = categoryGroups
+    categories = categoryGroups
       .filter((group) => allowedCategories.includes(group.name))
       .flatMap((group) => group.categories || [])
       .filter((cat) => !cat.deleted && !cat.hidden)
       .map((cat) => cat.name)
       .filter(Boolean);
   }
-  logger.debug("getAllEnvelopes result", { length: envelopes.length });
-  if (!envelopes.length) {
-    logger.warn("No envelopes found", { budgetId, allowedCategories });
-    throw new Error("No envelopes found");
+  logger.debug("getAllCategories result", { length: categories.length });
+  if (!categories.length) {
+    logger.warn("No categories found", { budgetId, allowedCategories });
+    throw new Error("No categories found");
   }
-  return envelopes;
+  return categories;
 };
 
 export const getAllPayees = async () => {
@@ -71,7 +71,7 @@ export const getAllAccounts = async () => {
 
 export const getYnabInfo = async () => {
   logger.debug("getYnabInfo called");
-  const categories = await getAllEnvelopes();
+  const categories = await getAllCategories();
   const payees = await getAllPayees();
   const accounts = await getAllAccounts();
   logger.debug("getYnabInfo result", { catLength: categories.length, payeeLength: payees.length, accLength: accounts.length });
