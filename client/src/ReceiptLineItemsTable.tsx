@@ -28,9 +28,8 @@ export function ReceiptLineItemsTable({ lineItems = [], totalTaxes = 0, totalAmo
         <TableHead>
           <TableRow>
             <TableCell />
-            <TableCell>Category / Product</TableCell>
-            <TableCell align="right">Amount</TableCell>
-            <TableCell align="right">Quantity</TableCell>
+            <TableCell>Category</TableCell>
+            <TableCell>Amount</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -47,18 +46,25 @@ export function ReceiptLineItemsTable({ lineItems = [], totalTaxes = 0, totalAmo
                       {openCategories[cat] ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
                     </IconButton>
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>{cat} ({items.length} items)</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600 }}>${catTotal.toFixed(2)}</TableCell>
-                  <TableCell />
+                  <TableCell>{cat} ({items.length} items)</TableCell>
+                  <TableCell align="right">${catTotal.toFixed(2)}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={4}>
+                  <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={3}>
                     <Collapse in={openCategories[cat]} timeout="auto" unmountOnExit>
                       <Box sx={{ margin: 1 }}>
-                        <Table size="small">
+                        <Table size="small" padding="none">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell />
+                              <TableCell>Product</TableCell>
+                              <TableCell align="right">Amount</TableCell>
+                              <TableCell align="right">Quantity</TableCell>
+                            </TableRow>
+                          </TableHead>
                           <TableBody>
                             {items.map((item, idx) => (
-                              <TableRow key={item.productName + idx}>
+                              <TableRow key={item.productName + idx} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                 <TableCell />
                                 <TableCell>{item.productName}</TableCell>
                                 <TableCell align="right">${item.lineItemTotalAmount.toFixed(2)}</TableCell>
@@ -76,14 +82,14 @@ export function ReceiptLineItemsTable({ lineItems = [], totalTaxes = 0, totalAmo
           })}
           {totalTaxes > 0 && (
             <TableRow>
-              <TableCell colSpan={2} />
-              <TableCell sx={{ fontWeight: 600 }}>Tax</TableCell>
+              <TableCell colSpan={1} />
+              <TableCell sx={{ fontWeight: 600 }} align="right">Receipt Tax</TableCell>
               <TableCell align="right" sx={{ fontWeight: 600 }}>${totalTaxes.toFixed(2)}</TableCell>
             </TableRow>
           )}
           <TableRow>
-            <TableCell colSpan={2} />
-            <TableCell sx={{ fontWeight: 700 }}>Total</TableCell>
+            <TableCell colSpan={1} />
+            <TableCell sx={{ fontWeight: 700 }} align="right">Receipt Total</TableCell>
             <TableCell align="right" sx={{ fontWeight: 700 }}>${totalAmount.toFixed(2)}</TableCell>
           </TableRow>
         </TableBody>
