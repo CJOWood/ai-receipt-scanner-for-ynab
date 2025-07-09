@@ -42,6 +42,15 @@ const steps = [
   'Save File',
 ]
 
+function formatLineItems(lineItems: Receipt['lineItems'] = []) {
+  return lineItems
+    .map(
+      (item) =>
+        `  - ${item.productName}: $${item.lineItemTotalAmount.toFixed(2)} (${item.category})`
+    )
+    .join('\n');
+}
+
 function App() {
   const [allCategories, setAllCategories] = useState<string[]>([])
   const [category, setCategory] = useState<string | null>(null)
@@ -236,7 +245,7 @@ function App() {
       
       // Create detailed feedback about what was parsed
       const lineItemsText = receipt.lineItems && receipt.lineItems.length > 0 
-        ? `\n• ${receipt.lineItems.length} line items found:\n${receipt.lineItems.map(item => `  - ${item.productName}: $${item.lineItemTotalAmount.toFixed(2)} (${item.category})`).join('\n')}`
+        ? `\n• ${receipt.lineItems.length} line items found:\n${formatLineItems(receipt.lineItems)}`
         : ''
       
       const taxText = receipt.totalTaxes && receipt.totalTaxes > 0 
