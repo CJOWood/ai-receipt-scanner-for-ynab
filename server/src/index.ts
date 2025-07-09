@@ -55,7 +55,7 @@ app.post(
         categoriesArr,
         payeesArr || null
       );
-      logger.info("Parsed receipt for categories", categoriesArr, "payees", payeesArr);
+      logger.info("Parsed receipt for categories", categoriesArr?.length, "payees", payeesArr?.length);
       return c.json(receipt, 200);
     } catch (err: any) {
       logger.error("Error parsing receipt:", err);
