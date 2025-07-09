@@ -23,6 +23,7 @@ const steps = [
 
 function App() {
   const [allCategories, setAllCategories] = useState<string[]>([])
+  const [allPayees, setAllPayees] = useState<string[]>([])
   const [category, setCategory] = useState<string | null>(null)
   const [accounts, setAccounts] = useState<string[]>([])
   const [account, setAccount] = useState<string | null>(null)
@@ -50,6 +51,7 @@ function App() {
         const info = await res.json()
         setAccounts(info.accounts || [])
         setAllCategories(info.categories || [])
+        setAllPayees(info.payees || [])
       } catch (err) {
         console.error('Error fetching YNAB info', err)
       }
@@ -174,20 +176,12 @@ function App() {
     const fileToProcess = croppedUrl ? await fetch(croppedUrl).then(r => r.blob()) : file
 
     // Step 1: Get YNAB Data
-    let ynabInfo: { categories: string[], payees: string[], accounts: string[] }
     setActiveStep(0)
-    try {
-      const res = await fetch(`/api/ynab-info`)
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.error || `HTTP ${res.status}`)
-      }
-      ynabInfo = await res.json()
-      markStepSuccess(0, `Fetched ${ynabInfo.categories.length} categories, ${ynabInfo.payees.length} payees, and ${ynabInfo.accounts.length} accounts from YNAB`)
-    } catch (err: unknown) {
-      markStepError(0, `✗ Failed to fetch YNAB data: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    if (!allCategories.length || !allPayees.length || !accounts.length) {
+      markStepError(0, '✗ Failed to fetch YNAB data: Not loaded')
       return
     }
+    markStepSuccess(0, `Fetched ${allCategories.length} categories, ${allPayees.length} payees, and ${accounts.length} accounts from YNAB`)
 
     // Step 2: Analyze Receipt
     let receipt: Receipt
@@ -195,8 +189,8 @@ function App() {
     try {
       const form = new FormData()
       form.append('file', fileToProcess instanceof Blob ? fileToProcess : file)
-      form.append('categories', JSON.stringify(category ? [category] : ynabInfo.categories))
-      form.append('payees', JSON.stringify(ynabInfo.payees))
+      form.append('categories', JSON.stringify(category ? [category] : allCategories))
+      form.append('payees', JSON.stringify(allPayees))
       
       const parseRes = await fetch(`/api/parse-receipt`, {
         method: 'POST',
