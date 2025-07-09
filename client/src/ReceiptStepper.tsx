@@ -45,7 +45,7 @@ export function ReceiptStepper({
               <Box>
                 <Typography variant="body2" sx={{ 
                     whiteSpace: 'pre-line',
-                    color: stepErrors[index] ? 'error.main' : stepSuccess[index] ? 'success.main' : 'text.secondary'
+                    color: stepErrors[index] ? 'error.main' : 'text.secondary'
                   }}>
                   • Merchant: {analyzedReceipt.merchant}
                   <br />• Date: {analyzedReceipt.transactionDate}
@@ -63,7 +63,7 @@ export function ReceiptStepper({
                   variant="body2" 
                   sx={{ 
                     whiteSpace: 'pre-line',
-                    color: stepErrors[index] ? 'error.main' : stepSuccess[index] ? 'success.main' : 'text.secondary'
+                    color: stepErrors[index] ? 'error.main' : 'text.secondary'
                   }}
                 >
                   {/* Remove leading checkmark from logs as well */}

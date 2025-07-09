@@ -177,7 +177,7 @@ function App() {
       markStepError(0, '✗ Failed to fetch YNAB data: Not loaded')
       return
     }
-    markStepSuccess(0, `${allCategories.length} categories, ${allPayees.length} payees, and ${accounts.length} accounts from YNAB`)
+    markStepSuccess(0, `${allCategories.length} categories, ${allPayees.length} payees, and ${accounts.length} accounts.`)
 
     // Step 2: Analyze Receipt
     let receipt: Receipt
