@@ -63,6 +63,8 @@ function App() {
   const [analyzedReceipt, setAnalyzedReceipt] = useState<Receipt | null>(null)
   const [openCategories, setOpenCategories] = useState<{ [cat: string]: boolean }>({})
 
+  const isMockAI = Boolean(import.meta.env.VITE_MOCK_AI || window.location.pathname.includes('mock-ai'))
+
   useEffect(() => {
     const fetchInfo = async () => {
       try {
@@ -259,75 +261,79 @@ ${lineItemsText}`)
 
     // Step 4: Create YNAB Transaction
     setActiveStep(3)
-    try {
-      const createRes = await fetch(`/api/create-transaction`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account, receipt }),
-      })
-      
-      if (!createRes.ok) {
-        const errorData = await createRes.json()
-        throw new Error(errorData.error || `HTTP ${createRes.status}`)
-      }
-      
-      const transactionResult = await createRes.json()
-      
-      // Build split transaction feedback
-      let splitFeedback = ''
-      if (transactionResult.splitInfo?.attempted) {
-        if (transactionResult.splitInfo.successful) {
-          splitFeedback = `\n• Split across ${transactionResult.splitInfo.splitCount} categories successfully`
-          
-          // Add tax distribution info if available
-          if (transactionResult.splitInfo.taxDistributed && transactionResult.splitInfo.taxDistributed > 0) {
-            splitFeedback += `\n• Tax distributed: $${transactionResult.splitInfo.taxDistributed.toFixed(2)}`
-          }
-          
-          // Add adjustment info if available
-          if (transactionResult.splitInfo.adjustmentApplied && Math.abs(transactionResult.splitInfo.adjustmentApplied) > 0) {
-            const adjType = transactionResult.splitInfo.adjustmentType
-            const adjTypeText = adjType === 'tolerance' ? 'tolerance adjustment' : 
-                               adjType === 'proportional_adjustment' ? 'proportional adjustment' :
-                               adjType === 'tax_distribution' ? 'with tax distribution' : 'adjustment'
-            splitFeedback += `\n• ${adjTypeText}: ${transactionResult.splitInfo.adjustmentApplied >= 0 ? '+' : ''}$${transactionResult.splitInfo.adjustmentApplied.toFixed(2)}`
-          }
-          
-          // Add detailed breakdown if available
-          if (transactionResult.splitInfo.detailedBreakdown) {
-            const breakdown = transactionResult.splitInfo.detailedBreakdown
-            splitFeedback += `\n• Split breakdown: Items $${breakdown.originalSplitTotal.toFixed(2)}`
-            if (breakdown.taxAmount > 0) {
-              splitFeedback += ` + Tax $${breakdown.taxAmount.toFixed(2)}`
-            }
-            if (Math.abs(breakdown.finalAdjustment) > 0) {
-              splitFeedback += ` + Adj $${breakdown.finalAdjustment.toFixed(2)}`
-            }
-            splitFeedback += ` = $${receipt.totalAmount.toFixed(2)}`
-          }
-        } else {
-          splitFeedback = `\n• ⚠️ Split transaction attempted but failed: ${transactionResult.splitInfo.reason}`
-          splitFeedback += `\n• Expected total: $${transactionResult.splitInfo.expectedAmount?.toFixed(2)}, Split total: $${transactionResult.splitInfo.totalSplitAmount?.toFixed(2)}`
-          splitFeedback += `\n• Transaction created as single entry in "${receipt.category}" instead`
+    if (isMockAI) {
+      markStepSuccess(3, '✓ Skipped YNAB transaction creation (mock AI mode)')
+    } else {
+      try {
+        const createRes = await fetch(`/api/create-transaction`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ account, receipt }),
+        })
+        
+        if (!createRes.ok) {
+          const errorData = await createRes.json()
+          throw new Error(errorData.error || `HTTP ${createRes.status}`)
         }
-      } else if (receipt.lineItems && receipt.lineItems.length > 1) {
-        splitFeedback = `\n• Single transaction (no splits attempted)`
-      }
+        
+        const transactionResult = await createRes.json()
+        
+        // Build split transaction feedback
+        let splitFeedback = ''
+        if (transactionResult.splitInfo?.attempted) {
+          if (transactionResult.splitInfo.successful) {
+            splitFeedback = `\n• Split across ${transactionResult.splitInfo.splitCount} categories successfully`
+            
+            // Add tax distribution info if available
+            if (transactionResult.splitInfo.taxDistributed && transactionResult.splitInfo.taxDistributed > 0) {
+              splitFeedback += `\n• Tax distributed: $${transactionResult.splitInfo.taxDistributed.toFixed(2)}`
+            }
+            
+            // Add adjustment info if available
+            if (transactionResult.splitInfo.adjustmentApplied && Math.abs(transactionResult.splitInfo.adjustmentApplied) > 0) {
+              const adjType = transactionResult.splitInfo.adjustmentType
+              const adjTypeText = adjType === 'tolerance' ? 'tolerance adjustment' : 
+                                 adjType === 'proportional_adjustment' ? 'proportional adjustment' :
+                                 adjType === 'tax_distribution' ? 'with tax distribution' : 'adjustment'
+              splitFeedback += `\n• ${adjTypeText}: ${transactionResult.splitInfo.adjustmentApplied >= 0 ? '+' : ''}$${transactionResult.splitInfo.adjustmentApplied.toFixed(2)}`
+            }
+            
+            // Add detailed breakdown if available
+            if (transactionResult.splitInfo.detailedBreakdown) {
+              const breakdown = transactionResult.splitInfo.detailedBreakdown
+              splitFeedback += `\n• Split breakdown: Items $${breakdown.originalSplitTotal.toFixed(2)}`
+              if (breakdown.taxAmount > 0) {
+                splitFeedback += ` + Tax $${breakdown.taxAmount.toFixed(2)}`
+              }
+              if (Math.abs(breakdown.finalAdjustment) > 0) {
+                splitFeedback += ` + Adj $${breakdown.finalAdjustment.toFixed(2)}`
+              }
+              splitFeedback += ` = $${receipt.totalAmount.toFixed(2)}`
+            }
+          } else {
+            splitFeedback = `\n• ⚠️ Split transaction attempted but failed: ${transactionResult.splitInfo.reason}`
+            splitFeedback += `\n• Expected total: $${transactionResult.splitInfo.expectedAmount?.toFixed(2)}, Split total: $${transactionResult.splitInfo.totalSplitAmount?.toFixed(2)}`
+            splitFeedback += `\n• Transaction created as single entry in "${receipt.category}" instead`
+          }
+        } else if (receipt.lineItems && receipt.lineItems.length > 1) {
+          splitFeedback = `\n• Single transaction (no splits attempted)`
+        }
 
-      // Build date adjustment feedback
-      let dateFeedback = ''
-      if (transactionResult.dateAdjustment) {
-        dateFeedback = `\n• ⚠️ Date adjusted: ${transactionResult.dateAdjustment.reason}`
-        dateFeedback += `\n• Original: ${transactionResult.dateAdjustment.originalDate}, Used: ${transactionResult.dateAdjustment.adjustedDate}`
-      }
-      
-      markStepSuccess(3, `✓ Transaction created in YNAB:
+        // Build date adjustment feedback
+        let dateFeedback = ''
+        if (transactionResult.dateAdjustment) {
+          dateFeedback = `\n• ⚠️ Date adjusted: ${transactionResult.dateAdjustment.reason}`
+          dateFeedback += `\n• Original: ${transactionResult.dateAdjustment.originalDate}, Used: ${transactionResult.dateAdjustment.adjustedDate}`
+        }
+        
+        markStepSuccess(3, `✓ Transaction created in YNAB:
 • Account: ${account}
 • Amount: $${receipt.totalAmount.toFixed(2)}
 • Payee: ${receipt.merchant}${splitFeedback}${dateFeedback}`)
-    } catch (err: unknown) {
-      markStepError(3, `✗ Failed to create YNAB transaction: ${err instanceof Error ? err.message : 'Unknown error'}`)
-      return
+      } catch (err: unknown) {
+        markStepError(3, `✗ Failed to create YNAB transaction: ${err instanceof Error ? err.message : 'Unknown error'}`)
+        return
+      }
     }
 
     // Step 5: Save File
