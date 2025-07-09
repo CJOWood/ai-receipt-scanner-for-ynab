@@ -1,4 +1,4 @@
-import { Stepper, Step, StepLabel, StepContent, Box, Typography } from '@mui/material'
+import { Stepper, Step, StepLabel, StepContent, Box, Typography, CircularProgress } from '@mui/material'
 import ErrorIcon from '@mui/icons-material/Error'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { ReceiptLineItemsTable } from './ReceiptLineItemsTable'
@@ -67,7 +67,12 @@ export function ReceiptStepper({
                   }}
                 >
                   {/* Remove leading checkmark from logs as well */}
-                  {logs[index]?.replace(/^✓\s?/, '') || (index === activeStep ? 'In progress...' : '')}
+                  {logs[index]?.replace(/^✓\s?/, '') || (index === activeStep ? (
+                    <span>
+                      <CircularProgress size="20px" sx={{ verticalAlign: 'middle', mr: 1 }} />
+                      In progress...
+                    </span>
+                  ) : '')}
                 </Typography>
               )
             )}
