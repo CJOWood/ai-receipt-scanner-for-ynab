@@ -1,7 +1,7 @@
 import type { Receipt } from "shared";
 import {
   createTransaction,
-  getAllEnvelopes as getAllCategories,
+  getAllCategories,
   getAllPayees,
 } from "./budget";
 import { parseReceipt, buildPrompt } from "./gen-ai";
