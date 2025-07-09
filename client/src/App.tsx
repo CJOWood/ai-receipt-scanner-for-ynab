@@ -543,7 +543,7 @@ ${lineItemsText}`)
               >
                 Process Receipt
               </Button>
-              {activeStep >= steps.length && (
+              {(activeStep >= steps.length || stepErrors.some(Boolean)) && (
                 <Button
                   variant="outlined"
                   onClick={() => {
