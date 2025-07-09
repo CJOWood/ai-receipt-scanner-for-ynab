@@ -10,6 +10,7 @@ import type { Receipt } from 'shared'
 import { ReceiptForm } from './ReceiptForm'
 import { suggestReceiptCrop, cropImageFromPixels } from './utils/imageUtils'
 import { generateProcessingFeedback } from './utils/generateProcessingFeedback'
+import { buildSplitFeedback } from './utils/buildSplitFeedback'
 
 const theme = createTheme({ palette: { mode: 'dark' } })
 const steps = [
@@ -182,7 +183,7 @@ function App() {
         throw new Error(errorData.error || `HTTP ${res.status}`)
       }
       ynabInfo = await res.json()
-      markStepSuccess(0, `✓ Fetched ${ynabInfo.categories.length} categories, ${ynabInfo.payees.length} payees, and ${ynabInfo.accounts.length} accounts from YNAB`)
+      markStepSuccess(0, `Fetched ${ynabInfo.categories.length} categories, ${ynabInfo.payees.length} payees, and ${ynabInfo.accounts.length} accounts from YNAB`)
     } catch (err: unknown) {
       markStepError(0, `✗ Failed to fetch YNAB data: ${err instanceof Error ? err.message : 'Unknown error'}`)
       return
@@ -219,8 +220,7 @@ function App() {
         ? `\n• Tax amount: $${receipt.totalTaxes.toFixed(2)}`
         : ''
       
-      markStepSuccess(1, `✓ Receipt analyzed successfully:
-• Merchant: ${receipt.merchant}
+      markStepSuccess(1, `• Merchant: ${receipt.merchant}
 • Date: ${receipt.transactionDate}
 • Total: $${receipt.totalAmount.toFixed(2)}${taxText}
 • Category: ${receipt.category}
@@ -255,45 +255,7 @@ ${lineItemsText}`)
         const transactionResult = await createRes.json()
         
         // Build split transaction feedback
-        let splitFeedback = ''
-        if (transactionResult.splitInfo?.attempted) {
-          if (transactionResult.splitInfo.successful) {
-            splitFeedback = `\n• Split across ${transactionResult.splitInfo.splitCount} categories successfully`
-            
-            // Add tax distribution info if available
-            if (transactionResult.splitInfo.taxDistributed && transactionResult.splitInfo.taxDistributed > 0) {
-              splitFeedback += `\n• Tax distributed: $${transactionResult.splitInfo.taxDistributed.toFixed(2)}`
-            }
-            
-            // Add adjustment info if available
-            if (transactionResult.splitInfo.adjustmentApplied && Math.abs(transactionResult.splitInfo.adjustmentApplied) > 0) {
-              const adjType = transactionResult.splitInfo.adjustmentType
-              const adjTypeText = adjType === 'tolerance' ? 'tolerance adjustment' : 
-                                 adjType === 'proportional_adjustment' ? 'proportional adjustment' :
-                                 adjType === 'tax_distribution' ? 'with tax distribution' : 'adjustment'
-              splitFeedback += `\n• ${adjTypeText}: ${transactionResult.splitInfo.adjustmentApplied >= 0 ? '+' : ''}$${transactionResult.splitInfo.adjustmentApplied.toFixed(2)}`
-            }
-            
-            // Add detailed breakdown if available
-            if (transactionResult.splitInfo.detailedBreakdown) {
-              const breakdown = transactionResult.splitInfo.detailedBreakdown
-              splitFeedback += `\n• Split breakdown: Items $${breakdown.originalSplitTotal.toFixed(2)}`
-              if (breakdown.taxAmount > 0) {
-                splitFeedback += ` + Tax $${breakdown.taxAmount.toFixed(2)}`
-              }
-              if (Math.abs(breakdown.finalAdjustment) > 0) {
-                splitFeedback += ` + Adj $${breakdown.finalAdjustment.toFixed(2)}`
-              }
-              splitFeedback += ` = $${receipt.totalAmount.toFixed(2)}`
-            }
-          } else {
-            splitFeedback = `\n• ⚠️ Split transaction attempted but failed: ${transactionResult.splitInfo.reason}`
-            splitFeedback += `\n• Expected total: $${transactionResult.splitInfo.expectedAmount?.toFixed(2)}, Split total: $${transactionResult.splitInfo.totalSplitAmount?.toFixed(2)}`
-            splitFeedback += `\n• Transaction created as single entry in "${receipt.category}" instead`
-          }
-        } else if (receipt.lineItems && receipt.lineItems.length > 1) {
-          splitFeedback = `\n• Single transaction (no splits attempted)`
-        }
+        const splitFeedback = buildSplitFeedback(transactionResult.splitInfo, receipt)
 
         // Build date adjustment feedback
         let dateFeedback = ''
@@ -302,8 +264,7 @@ ${lineItemsText}`)
           dateFeedback += `\n• Original: ${transactionResult.dateAdjustment.originalDate}, Used: ${transactionResult.dateAdjustment.adjustedDate}`
         }
         
-        markStepSuccess(3, `✓ Transaction created in YNAB:
-• Account: ${account}
+        markStepSuccess(3, `• Account: ${account}
 • Amount: $${receipt.totalAmount.toFixed(2)}
 • Payee: ${receipt.merchant}${splitFeedback}${dateFeedback}`)
       } catch (err: unknown) {
@@ -337,11 +298,9 @@ ${lineItemsText}`)
       if (!uploadResult.storageInfo?.configured) {
         storageMessage = '⚠️ Receipt file not saved - no storage configured\n(This is optional - your YNAB transaction was created successfully)'
       } else if (uploadResult.storageInfo.type === 'local') {
-        storageMessage = `✓ Receipt file saved locally\n• Location: ${uploadResult.storageInfo.location}`
+        storageMessage = `Receipt file saved locally\n• Location: ${uploadResult.storageInfo.location}`
       } else if (uploadResult.storageInfo.type === 's3') {
-        storageMessage = `✓ Receipt file uploaded to S3 cloud storage\n• Location: ${uploadResult.storageInfo.location}`
-      } else {
-        storageMessage = '✓ Receipt file saved successfully'
+        storageMessage = `Receipt file uploaded to S3 cloud storage\n• Location: ${uploadResult.storageInfo.location}`
       }
       
       markStepSuccess(4, storageMessage)

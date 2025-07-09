@@ -47,8 +47,7 @@ export function ReceiptStepper({
                     whiteSpace: 'pre-line',
                     color: stepErrors[index] ? 'error.main' : stepSuccess[index] ? 'success.main' : 'text.secondary'
                   }}>
-                  ✓ Receipt analyzed successfully:
-                  <br />• Merchant: {analyzedReceipt.merchant}
+                  • Merchant: {analyzedReceipt.merchant}
                   <br />• Date: {analyzedReceipt.transactionDate}
                   <br />• Memo: {analyzedReceipt.memo}
                 </Typography>
@@ -67,7 +66,8 @@ export function ReceiptStepper({
                     color: stepErrors[index] ? 'error.main' : stepSuccess[index] ? 'success.main' : 'text.secondary'
                   }}
                 >
-                  {logs[index] || (index === activeStep ? 'In progress...' : '')}
+                  {/* Remove leading checkmark from logs as well */}
+                  {logs[index]?.replace(/^✓\s?/, '') || (index === activeStep ? 'In progress...' : '')}
                 </Typography>
               )
             )}
