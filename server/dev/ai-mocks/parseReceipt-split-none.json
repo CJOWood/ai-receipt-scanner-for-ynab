@@ -1,0 +1,16 @@
+{
+  "splitInfo": {
+    "attempted": false,
+    "successful": false
+  },
+  "merchant": "Cafe Bliss",
+  "transactionDate": "2025-07-08",
+  "totalAmount": 12.00,
+  "totalTaxes": 1.00,
+  "category": "Dining",
+  "memo": "No split needed",
+  "lineItems": [
+    { "productName": "Latte", "lineItemTotalAmount": 5.50, "category": "Coffee", "quantity": 1 },
+    { "productName": "Bagel", "lineItemTotalAmount": 5.50, "category": "Bakery", "quantity": 1 }
+  ]
+}
