@@ -5,33 +5,17 @@ import {
   Box,
   Button,
   Container,
-  Step,
-  StepContent,
-  StepLabel,
-  Stepper,
   TextField,
   Typography,
 } from '@mui/material'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import InsertPhotoIcon from '@mui/icons-material/InsertPhoto'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
-import ErrorIcon from '@mui/icons-material/Error'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import { ReceiptStepper } from './ReceiptStepper'
 import type { Receipt } from 'shared'
 import Cropper from 'react-easy-crop'
 import { suggestReceiptCrop, cropImageFromPixels } from './utils/imageUtils'
 import { generateProcessingFeedback } from './utils/generateProcessingFeedback'
-import Table from '@mui/material/Table'
-import TableBody from '@mui/material/TableBody'
-import TableCell from '@mui/material/TableCell'
-import TableContainer from '@mui/material/TableContainer'
-import TableHead from '@mui/material/TableHead'
-import TableRow from '@mui/material/TableRow'
-import Paper from '@mui/material/Paper'
-import Collapse from '@mui/material/Collapse'
-import IconButton from '@mui/material/IconButton'
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
 
 const theme = createTheme({ palette: { mode: 'dark' } })
 const steps = [
@@ -41,15 +25,6 @@ const steps = [
   'Create YNAB Transaction',
   'Save File',
 ]
-
-function formatLineItems(lineItems: Receipt['lineItems'] = []) {
-  return lineItems
-    .map(
-      (item) =>
-        `  - ${item.productName}: $${item.lineItemTotalAmount.toFixed(2)} (${item.category})`
-    )
-    .join('\n');
-}
 
 function App() {
   const [allCategories, setAllCategories] = useState<string[]>([])
@@ -70,7 +45,6 @@ function App() {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
   const [croppedUrl, setCroppedUrl] = useState<string | null>(null)
   const [analyzedReceipt, setAnalyzedReceipt] = useState<Receipt | null>(null)
-  const [openCategories, setOpenCategories] = useState<{ [cat: string]: boolean }>({})
 
   const isMockAI = Boolean(import.meta.env.VITE_MOCK_AI || window.location.pathname.includes('mock-ai'))
 
@@ -241,11 +215,10 @@ function App() {
       
       receipt = await parseRes.json()
       setAnalyzedReceipt(receipt)
-      setOpenCategories({}) // reset open state
       
       // Create detailed feedback about what was parsed
       const lineItemsText = receipt.lineItems && receipt.lineItems.length > 0 
-        ? `\n• ${receipt.lineItems.length} line items found:\n${formatLineItems(receipt.lineItems)}`
+        ? `\n• ${receipt.lineItems.length} line items found.`
         : ''
       
       const taxText = receipt.totalTaxes && receipt.totalTaxes > 0 
@@ -385,16 +358,6 @@ ${lineItemsText}`)
 
     // All steps completed successfully
     setActiveStep(5) // Set to completed state
-  }
-
-  // Helper to group line items by category
-  const groupLineItemsByCategory = (lineItems: Receipt['lineItems'] = []) => {
-    const groups: { [cat: string]: typeof lineItems } = {}
-    for (const item of lineItems) {
-      if (!groups[item.category]) groups[item.category] = []
-      groups[item.category].push(item)
-    }
-    return groups
   }
 
   return (
@@ -610,122 +573,14 @@ ${lineItemsText}`)
               alignSelf: { md: 'flex-start' },
             }}
           >
-            <Stepper activeStep={activeStep} orientation="vertical">
-              {steps.map((label, index) => (
-                <Step key={label} expanded={index <= activeStep}>
-                  <StepLabel
-                    error={stepErrors[index]}
-                    StepIconComponent={({ completed, error }) => {
-                      if (error) {
-                        return <ErrorIcon color="error" />
-                      } else if (completed || stepSuccess[index]) {
-                        return <CheckCircleIcon color="success" />
-                      } else {
-                        return <span>{index + 1}</span>
-                      }
-                    }}
-                  >
-                    {label}
-                  </StepLabel>
-                  <StepContent>
-                    {/* Custom rendering for Analyze Receipt step with table */}
-                    {index === 1 && analyzedReceipt && analyzedReceipt.lineItems && analyzedReceipt.lineItems.length > 0 ? (
-                      <Box>
-                        <Typography variant="body2" sx={{ mb: 1 }}>
-                          ✓ Receipt analyzed successfully:
-                          <br />• Merchant: {analyzedReceipt.merchant}
-                          <br />• Date: {analyzedReceipt.transactionDate}
-                          <br />• Memo: {analyzedReceipt.memo}
-                        </Typography>
-                        {/* Grouped Table */}
-                        <TableContainer component={Paper} sx={{ mb: 2, minWidth: 400, maxWidth: '100%', overflowX: 'auto' }}>
-                          <Table size="small">
-                            <TableHead>
-                              <TableRow>
-                                <TableCell />
-                                <TableCell>Category / Product</TableCell>
-                                <TableCell align="right">Amount</TableCell>
-                                <TableCell align="right">Quantity</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {Object.entries(groupLineItemsByCategory(analyzedReceipt.lineItems)).map(([cat, items]) => {
-                                // Correct category total: sum of (lineItemTotalAmount) only, not multiplied by quantity
-                                const catTotal = items.reduce((sum, item) => sum + item.lineItemTotalAmount, 0)
-                                return (
-                                  <>
-                                    <TableRow key={cat} sx={{ backgroundColor: '#222' }}>
-                                      <TableCell>
-                                        <IconButton
-                                          size="small"
-                                          onClick={() => setOpenCategories(prev => ({ ...prev, [cat]: !prev[cat] }))
-                                          }
-                                        >
-                                          {openCategories[cat] ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
-                                        </IconButton>
-                                      </TableCell>
-                                      <TableCell sx={{ fontWeight: 600 }}>{cat} ({items.length} items)</TableCell>
-                                      <TableCell align="right" sx={{ fontWeight: 600 }}>${catTotal.toFixed(2)}</TableCell>
-                                      <TableCell />
-                                    </TableRow>
-                                    <TableRow>
-                                      <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={4}>
-                                        <Collapse in={openCategories[cat]} timeout="auto" unmountOnExit>
-                                          <Box sx={{ margin: 1 }}>
-                                            <Table size="small">
-                                              <TableBody>
-                                                {items.map((item, idx) => (
-                                                  <TableRow key={item.productName + idx}>
-                                                    <TableCell />
-                                                    <TableCell>{item.productName}</TableCell>
-                                                    <TableCell align="right">${item.lineItemTotalAmount.toFixed(2)}</TableCell>
-                                                    <TableCell align="right">{item.quantity || 1}</TableCell>
-                                                  </TableRow>
-                                                ))}
-                                              </TableBody>
-                                            </Table>
-                                          </Box>
-                                        </Collapse>
-                                      </TableCell>
-                                    </TableRow>
-                                  </>
-                                )
-                              })}
-                              {/* Taxes row */}
-                              {analyzedReceipt.totalTaxes && analyzedReceipt.totalTaxes > 0 && (
-                                <TableRow>
-                                  <TableCell colSpan={2} />
-                                  <TableCell sx={{ fontWeight: 600 }}>Tax</TableCell>
-                                  <TableCell align="right" sx={{ fontWeight: 600 }}>${analyzedReceipt.totalTaxes.toFixed(2)}</TableCell>
-                                </TableRow>
-                              )}
-                              {/* Total row */}
-                              <TableRow>
-                                <TableCell colSpan={2} />
-                                <TableCell sx={{ fontWeight: 700 }}>Total</TableCell>
-                                <TableCell align="right" sx={{ fontWeight: 700 }}>${analyzedReceipt.totalAmount.toFixed(2)}</TableCell>
-                              </TableRow>
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-                      </Box>
-                    ) : (
-                      (index <= activeStep || logs[index]) && (
-                        <Typography 
-                          variant="body2" 
-                          sx={{ 
-                            whiteSpace: 'pre-line',
-                            color: stepErrors[index] ? 'error.main' : stepSuccess[index] ? 'success.main' : 'text.secondary'
-                          }}
-                        >
-                          {logs[index] || (index === activeStep ? 'In progress...' : '')}
-                        </Typography>
-                      )
-                    )}
-                  </StepContent>
-                </Step>
-              ))}
-            </Stepper>
+            <ReceiptStepper
+              steps={steps}
+              activeStep={activeStep}
+              stepErrors={stepErrors}
+              stepSuccess={stepSuccess}
+              logs={logs}
+              analyzedReceipt={analyzedReceipt}
+            />
           </Box>
         </Box>
       </Container>
