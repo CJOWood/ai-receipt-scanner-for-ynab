@@ -85,7 +85,7 @@ export function buildSplitFeedback(
       }
     } else {
       // Split was attempted but failed: show reason and fallback
-      splitFeedback = `\n• ⚠️ Split transaction attempted but failed: ${splitInfo.reason}`
+      splitFeedback = `\n• ⚠️ Split transaction attempted but failed.`
       splitFeedback += `\n• Expected total: $${splitInfo.expectedAmount?.toFixed(2)}, Split total: $${splitInfo.totalSplitAmount?.toFixed(2)}`
       splitFeedback += `\n• Transaction created as single entry in "${receipt.category}" instead`
     }
